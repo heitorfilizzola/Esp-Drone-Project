@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ESP-Drone | Sistema de Telemetria e Monitoramento de Altitude</title>
+  <style>
+    :root {
+      --bg-color: #0d1117;
+      --card-bg: #161b22;
+      --border-color: #30363d;
+      --text-main: #c9d1d9;
+      --text-header: #f0f6fc;
+      --accent-blue: #58a6ff;
+      --accent-green: #3fb950;
+      --code-bg: #010409;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      scroll-behavior: smooth;
+      scroll-padding-top: 140px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      line-height: 1.6;
+      padding: 0 20px 20px 20px;
+    }
+
+    /* Header Moderno e Escuro */
+    .custom-header {
+      background-color: rgba(22, 27, 34, 0.85);
+      border-bottom: 1px solid var(--border-color);
+      padding: 16px 24px;
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      margin-bottom: 30px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    }
+
+    .header-container {
+      max-width: 960px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    /* Banner Superior do Cabeçalho */
+    .header-banner {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .logo-box {
+      background-color: #21262d;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: border-color 0.2s ease;
+    }
+
+    .logo-box:hover {
+      border-color: var(--accent-blue);
+    }
+
+    .logo-box img {
+      height: 28px;
+      width: auto;
+      object-fit: contain;
+    }
+
+    .title-box h1 {
+      color: var(--text-header);
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      margin: 0;
+      background: linear-gradient(90deg, #f0f6fc, #58a6ff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    /* Barra de Navegação */
+    .nav-bar {
+      background-color: rgba(1, 4, 9, 0.6);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 6px 8px;
+    }
+
+    .nav-list {
+      list-style: none;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin: 0;
+      padding: 0;
+    }
+
+    .nav-link {
+      color: var(--text-main);
+      text-decoration: none;
+      font-size: 0.9rem;
+      font-weight: 500;
+      padding: 8px 16px;
+      border-radius: 6px;
+      transition: all 0.2s ease;
+      display: inline-block;
+    }
+
+    .nav-link:hover {
+      color: var(--text-header);
+      background-color: rgba(56, 139, 253, 0.15);
+      border-color: var(--accent-blue);
+    }
+
+    .nav-link:active {
+      transform: scale(0.97);
+    }
+
+    /* Conteúdo Principal */
+    .container {
+      max-width: 960px;
+      margin: 0 auto;
+    }
+
+    .hero-img {
+      width: 100%;
+      object-fit: cover;
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+      margin-bottom: 30px;
+    }
+
+    section {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+
+    h2 {
+      color: var(--text-header);
+      font-size: 1.4rem;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 8px;
+      margin-bottom: 16px;
+    }
+
+    h3 {
+      color: var(--accent-blue);
+      font-size: 1.1rem;
+      margin: 16px 0 8px 0;
+    }
+
+    ul, ol {
+      margin-left: 20px;
+      margin-bottom: 12px;
+    }
+
+    li {
+      margin-bottom: 6px;
+    }
+
+    pre, code {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
+      background-color: var(--code-bg);
+      border-radius: 6px;
+    }
+
+    code {
+      padding: 2px 6px;
+      color: #f2cc60;
+    }
+
+    pre {
+      padding: 16px;
+      overflow-x: auto;
+      border: 1px solid var(--border-color);
+      color: #e6edf3;
+      font-size: 0.88rem;
+      line-height: 1.4;
+      margin: 12px 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 16px 0;
+    }
+
+    th, td {
+      text-align: left;
+      padding: 10px 12px;
+      border: 1px solid var(--border-color);
+    }
+
+    th {
+      background-color: rgba(110, 118, 129, 0.1);
+      color: var(--text-header);
+    }
+
+    .badge-checklist {
+      list-style-type: none;
+      margin-left: 0;
+    }
+
+    .badge-checklist li::before {
+      content: "✔ ";
+      color: var(--accent-green);
+      font-weight: bold;
+    }
+
+    .badge-checklist li.pending::before {
+      content: "⏳ ";
+      color: #e3b341;
+    }
+
+    footer {
+      text-align: center;
+      padding: 20px 0;
+      color: #8b949e;
+      font-size: 0.9rem;
+      border-top: 1px solid var(--border-color);
+      margin-top: 40px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header Fixo Moderno -->
+  <header class="custom-header">
+    <div class="header-container">
+      <div class="header-banner">
+        <div class="logo-box">
+          <img src="https://cdn-icons-png.flaticon.com/512/1085/1085482.png" alt="Logo Satélite" />
+        </div>
+        <div class="title-box">
+          <h1>Sky Sense</h1>
+        </div>
+      </div>
+
+      <nav class="nav-bar">
+        <ul class="nav-list">
+          <li><a href="#visao-geral" class="nav-link">Home</a></li>
+          <li><a href="#arquitetura" class="nav-link">Plataforma</a></li>
+          <li><a href="#esquemas-eletricos" class="nav-link">Dispositivo</a></li>
+          <li><a href="#mqtt" class="nav-link">Aplicativo</a></li>
+          <li><a href="#status" class="nav-link">Status</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <div class="container">
+    <!-- Poster do Projeto -->
+    <img src="assets/esp_drone_poster.png" alt="ESP-Drone Poster" class="hero-img" onerror="this.style.display='none'" />
+
+    <!-- Visão Geral -->
+    <section id="visao-geral">
+      <h2>Visão Geral do Projeto</h2>
+      <p>
+        O objetivo principal deste projeto é integrar sensoriamento de altitude em tempo real a uma plataforma de drone com ESP32-S2, permitindo estabilização de voo mais precisa e disponibilizando dados de telemetria tanto para ferramentas avançadas de pilotagem em PC quanto para um aplicativo móvel voltado ao acompanhamento visual.
+      </p>
+
+      <h3>Pilares da Arquitetura:</h3>
+      <ol>
+        <li><strong>Controle e Sensoriamento no Drone (Hardware):</strong> Leitura de altitude pelo sensor Time-of-Flight (Mini ToF 90°) via I2C, fusão com a malha de estabilização do firmware ESP-Drone e transmissão simultânea via protocolo CRTP e mensagens MQTT.</li>
+        <li><strong>Infraestrutura e Estação de Solo:</strong> Comunicação direta com software de pilotagem (Crazyflie Client / QGroundControl) e despacho de telemetria para o broker MQTT EMQX.</li>
+        <li><strong>Apresentação e Telemetria Móvel:</strong> Aplicativo mobile conectado ao EMQX que assina os tópicos de telemetria e exibe painéis intuitivos de altitude, histórico e status.</li>
+      </ol>
+    </section>
+
+    <!-- Arquitetura do Sistema -->
+    <section id="arquitetura">
+      <h2>Arquitetura do Sistema</h2>
+      <pre>
++-------------------------------------------------------------------------------+
+|                                CAMADA DE HARDWARE                             |
+|                                                                               |
+|  +--------------------+      I2C      +---------------------------------+     |
+|  |   Mini TOF 90°     | ------------> |       ESP32-S2 (ESP-Drone)      |     |
+|  |  (Sensor Altura)   |               |                                 |     |
+|  +--------------------+               | - Leitura do TOF (Altitude)     |     |
+|                                       | - Estabilização / Firmware      |     |
+|                                       | - Cliente MQTT & Protocolo CRTP |     |
+|                                       +---------------------------------+     |
++---------------------------------------/----------------\----------------------+
+                                       /                  \
+              Comandos / Telemetria   /                    \ MQTT Publish
+              (CRTP via Wi-Fi/UDP)   /                      \ (drone/telemetry/altitude)
+                                    /                        \
++----------------------------------|--------------------------|------------------+
+|                                 v                           v                  |
+|                       +-------------------+       +-------------------+        |
+|                       | Software de       |       |       EMQX        |        |
+|                       | Controle de Voo   |       |   (MQTT Broker)   |        |
+|                       | (Crazyflie Client |       |                   |        |
+|                       | / QGroundControl) |       +---------|---------+        |
+|                       +-------------------+                 |                  |
+|                                                             |                  |
+|                                 ESTAÇÃO PC                  |                  |
++-------------------------------------------------------------|------------------+
+                                                              |
+                                                Wi-Fi / MQTT  | Sub: drone/telemetry/#
+                                                              v
++-------------------------------------------------------------------------------+
+|                              CAMADA DE APRESENTAÇÃO                           |
+|                                                                               |
+|                   +---------------------------------------+                   |
+|                   |           Aplicativo Mobile           |                   |
+|                   |                                       |                   |
+|                   | - Dashboard de Telemetria             |                   |
+|                   | - Exibição de Altitude em Tempo Real  |                   |
+|                   | - Gráficos e Status de Conexão        |                   |
+|                   +---------------------------------------+                   |
++-------------------------------------------------------------------------------+
+      </pre>
+    </section>
+
+    <!-- Circuitos Eletrônicos -->
+    <section id="esquemas-eletricos">
+      <h2>Diagramas e Esquemas Elétricos</h2>
+      
+      <h3>Diagrama Elétrico Geral</h3>
+      <pre>
+        +-----------------------+
+        |   Bateria LiPo 1S     |
+        |  (3.7V / 300-600mAh)  |
+        +-----------+-----------+
+                    |
+                    +------------------------------------+
+                    |                                    |
+                    v                                    v
+        +-----------------------+            +-----------------------+
+        |     Regulador LDO     |            |  Drivers / MOSFETs    |
+        |     (3.7V -> 3.3V)    |            |   Motores do Drone    |
+        +-----------+-----------+            +-----------+-----------+
+                    |                                    |
+                    | (3.3V Estabilizado)                | (Alimentação Direta)
+                    v                                    v
+       +-------------------------+              +------------------+
+       |  ESP32-S2 (MCU Core)    |              | Motores M1 - M4  |
+       +------------+------------+              +------------------+
+                    | Barramento I2C
+                    v
+       +-------------------------+
+       |     Mini TOF 90°        |
+       |   (Medição Altitude)    |
+       +-------------------------+
+      </pre>
+
+      <h3>Conexões GPIO (ESP32-S2 &lt;-&gt; Mini TOF 90°)</h3>
+      <pre>
+                        +-----------------------------------+
+                        |        ESP32-S2 (ESP-Drone)       |
+                        |                                   |
+                        |  [3V3]  [GND]   [GPIO8]  [GPIO9]  |
+                        +---|-------|--------|--------|-----+
+                            |       |        |        |
+                            |       |       SDA      SCL
+                            |       |        |        |
+  +-------------------+     |       |        |        |
+  |   Mini TOF 90°    |     |       |        |        |
+  |                   |     |       |        |        |
+  |  [VCC]  [GND]     | &lt;---+       |        |        |
+  |    |      |       |             |        |        |
+  |    +------+-------|-------------+        |        |
+  |                   |                      |        |
+  |  [SDA]------------|----------------------+        |
+  |  [SCL]------------|-------------------------------+
+  |                   |
+  +-------------------+
+      </pre>
+    </section>
+
+    <!-- Comunicação MQTT -->
+    <section id="mqtt">
+      <h2>Especificação de Comunicação MQTT</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Tópico</th>
+            <th>Direção</th>
+            <th>Descrição</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>drone/telemetry/altitude</code></td>
+            <td>Drone ➔ EMQX</td>
+            <td>Publicação periódica dos dados do sensor ToF (altitude)</td>
+          </tr>
+          <tr>
+            <td><code>drone/telemetry/#</code></td>
+            <td>EMQX ➔ App Mobile</td>
+            <td>Tópico wildcard para subscrição de todos os dados</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>Exemplo de Payload (JSON)</h3>
+      <pre><code class="language-json">{
+  "timestamp": 1718012345,
+  "sensor": "mini_tof_90",
+  "altitude_mm": 845,
+  "altitude_m": 0.845,
+  "status": "valid"
+}</code></pre>
+    </section>
+
+    <!-- Próximas Etapas -->
+    <section id="status">
+      <h2>Status do Projeto</h2>
+      <ul class="badge-checklist">
+        <li>Validação de bancada do sensor ToF 90° via I2C com publicação MQTT.</li>
+        <li class="pending">Integração do driver do ToF 90° no firmware oficial do ESP-Drone (ESP32-S2).</li>
+        <li class="pending">Ajuste da malha de controle de altitude (PID/fusão com barômetro/IMU).</li>
+        <li class="pending">Desenvolvimento e estilização do Aplicativo Mobile para consumo dos tópicos do EMQX.</li>
+      </ul>
+    </section>
+
+    <footer>
+      <p>ESP-Drone Telemetry Project &bull; Hospedado no GitHub Pages</p>
+    </footer>
+  </div>
+
+</body>
+</html>
