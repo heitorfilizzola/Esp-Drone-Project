@@ -1,0 +1,10 @@
+# PlatformIO and build artifacts
+.pio/
+.vscode/
+*.local
+
+# Secrets and environment configs
+*secrets.h
+.env
+.env.*
+!.env.example

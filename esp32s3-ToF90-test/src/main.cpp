@@ -43,14 +43,27 @@ void setRgbColor(LedColor color) {
 // ==========================================================
 // CONFIGURAÇÕES DE REDE E MQTT (EMQX)
 // ==========================================================
-const char* WIFI_SSID     = "SUA_REDE_WIFI";
-const char* WIFI_PASSWORD = "SUA_SENHA_WIFI";
+// As credenciais são carregadas do arquivo local 'secrets.h' (ignorado pelo Git).
+// Veja 'include/secrets.example.h' para configurar.
+#if __has_include("secrets.h")
+#include "secrets.h"
+#else
+#define SECRET_WIFI_SSID     "SUA_REDE_WIFI"
+#define SECRET_WIFI_PASSWORD "SUA_SENHA_WIFI"
+#define SECRET_MQTT_BROKER   "192.168.1.4"
+#define SECRET_MQTT_PORT     1883
+#define SECRET_MQTT_USER     "esp32s3_tof90"
+#define SECRET_MQTT_PASS     "SUA_SENHA_MQTT"
+#endif
 
-const char* MQTT_BROKER   = "192.168.1.4";
-const int   MQTT_PORT     = 1883;
+const char* WIFI_SSID     = SECRET_WIFI_SSID;
+const char* WIFI_PASSWORD = SECRET_WIFI_PASSWORD;
 
-const char* MQTT_USER     = "esp32s3_tof90";
-const char* MQTT_PASS     = "SUA_SENHA_MQTT";
+const char* MQTT_BROKER   = SECRET_MQTT_BROKER;
+const int   MQTT_PORT     = SECRET_MQTT_PORT;
+
+const char* MQTT_USER     = SECRET_MQTT_USER;
+const char* MQTT_PASS     = SECRET_MQTT_PASS;
 
 const char* MQTT_TOPIC    = "drone/sensor/tof90";
 const char* CLIENT_ID     = "esp32s3_tof90";
