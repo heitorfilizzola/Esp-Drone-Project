@@ -143,19 +143,20 @@ A arquitetura do sistema divide-se em três pilares principais:
 ## 📡 Especificação de Comunicação MQTT
 
 ### Tópicos
-| Tópico | Direção | Descrição |
-| :--- | :--- | :--- |
-| `drone/telemetry/altitude` | Drone ➔ EMQX | Publicação periódica dos dados do sensor ToF (altitude) |
-| `drone/telemetry/#` | EMQX ➔ App Mobile | Tópico curinga (wildcard) para subscrição de todos os dados de telemetria |
+| Tópico | Direção | Protocolo | Descrição |
+| :--- | :--- | :--- | :--- |
+| `drone/sensor/tof90` | Drone ➔ EMQX | MQTT (TCP 1883) | Publicação periódica das leituras do sensor ToF-90° |
+| `drone/#` | EMQX ➔ App Mobile | MQTT sobre WebSocket (8083) | Tópico curinga (wildcard) para subscrição de toda a telemetria do drone |
 
 ### Exemplo de Payload (JSON)
 ```json
 {
-  "timestamp": 1718012345,
-  "sensor": "mini_tof_90",
-  "altitude_mm": 845,
-  "altitude_m": 0.845,
-  "status": "valid"
+  "device_id": "esp32s3_tof90",
+  "sensor": "U196_ToF90",
+  "distance_mm": 275,
+  "distance_cm": 27.5,
+  "valid": true,
+  "timestamp": 458920
 }
 ```
 
@@ -164,17 +165,17 @@ A arquitetura do sistema divide-se em três pilares principais:
 ## 🛠️ Tecnologias e Ferramentas
 
 * **Hardware:**
-  * Drone: ESP-Drone baseado no SoC Espressif ESP32-S2
-  * Sensor: M5Stack Unit Mini ToF 90° (Comunicação I2C)
+  * Drone: ESP-Drone baseado no SoC Espressif ESP32-S2 / ESP32-S3
+  * Sensor: M5Stack Unit Mini ToF 90° U196 (Comunicação I2C)
 * **Firmware / Redes:**
-  * ESP-IDF / FreeRTOS
+  * ESP-IDF / Arduino / PlatformIO
   * Protocolo CRTP (Crazy RealTime Protocol via UDP)
-  * Cliente MQTT (PubSubClient / esp-mqtt)
+  * Cliente MQTT (PubSubClient)
 * **Serviços & Broker:**
-  * EMQX Broker (MQTT v3.1.1 / v5.0)
+  * EMQX Broker (MQTT v3.1.1 / v5.0, TCP 1883 e WebSocket 8083)
 * **Estação de Controle & Apresentação:**
   * Crazyflie Python Client / QGroundControl
-  * Aplicativo Mobile (Dashboard de Telemetria)
+  * [DroneTelemetryApp](DroneTelemetryApp/) (Dashboard Mobile React Native / Expo)
 
 ---
 
@@ -182,7 +183,8 @@ A arquitetura do sistema divide-se em três pilares principais:
 
 ```text
 .
-├── esp32s3-ToF90-test/    # Testes preliminares de validação do sensor ToF 90° e MQTT
+├── DroneTelemetryApp/     # Aplicativo mobile React Native (Expo SDK 58) para telemetria em tempo real
+├── esp32s3-ToF90-test/    # Firmware e validação de bancada do sensor ToF 90° e MQTT (ESP32-S3)
 ├── readme.md              # Documentação geral da arquitetura do projeto
 └── ...
 ```
@@ -192,6 +194,6 @@ A arquitetura do sistema divide-se em três pilares principais:
 ## 🚀 Próximas Etapas
 
 - [x] Validação de bancada do sensor ToF 90° via I2C com publicação MQTT.
+- [x] Desenvolvimento e estilização do Aplicativo Mobile para consumo dos tópicos do EMQX.
 - [ ] Integração do driver do ToF 90° no firmware oficial do ESP-Drone (ESP32-S2).
 - [ ] Ajuste da malha de controle de altitude (PID/fusão com barômetro/IMU se aplicável).
-- [ ] Desenvolvimento e estilização do Aplicativo Mobile para consumo dos tópicos do EMQX.
