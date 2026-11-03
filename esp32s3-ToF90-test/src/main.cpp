@@ -87,6 +87,7 @@ void connectWiFi() {
     Serial.printf("\n[WiFi] Conectando a %s", WIFI_SSID);
     setRgbColor(COLOR_BLUE);
     WiFi.mode(WIFI_STA);
+    WiFi.setTxPower(WIFI_POWER_17dBm);
     WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
     int attempts = 0;
@@ -204,11 +205,19 @@ void loop() {
         }
     } else {
         setRgbColor(COLOR_RED);
+        static uint32_t lastWifiRetry = 0;
+        if (millis() - lastWifiRetry > 3000) {
+            lastWifiRetry = millis();
+            Serial.printf("[DIAGNOSTICO] Wi-Fi desconectado! Tentando reconectar a '%s'...\n", WIFI_SSID);
+            WiFi.reconnect();
+        }
     }
 
     Units.update();
 
+    static uint32_t lastSensorLog = 0;
     if (sensor.updated()) {
+        lastSensorLog = millis();
         int16_t distance_mm = sensor.range();
 
         if (millis() - lastPublishTime >= PUBLISH_INTERVAL_MS) {
@@ -240,7 +249,17 @@ void loop() {
                 setRgbColor(COLOR_RED);   // Vermelho quando dá erro de conexão
             }
         }
+    } else {
+        // Se o sensor parar de responder por mais de 3s, avisa no Serial em vez de ficar mudo
+        if (millis() - lastSensorLog > 3000) {
+            lastSensorLog = millis();
+            Serial.printf("[SENSOR][ALERTA] Aguardando leitura do ToF-90 no I2C (SDA=%d, SCL=%d)... (WiFi=%s, MQTT=%s)\n",
+                          PIN_SDA, PIN_SCL,
+                          (WiFi.status() == WL_CONNECTED ? "OK" : "OFF"),
+                          (mqttClient.connected() ? "OK" : "OFF"));
+        }
     }
 
+    Serial.flush();
     delay(10);
 }
