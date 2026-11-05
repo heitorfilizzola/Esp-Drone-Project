@@ -37,8 +37,9 @@ export default function App() {
   const [maxAltitude, setMaxAltitude] = useState<number | null>(null);
   const [minAltitude, setMinAltitude] = useState<number | null>(null);
 
-  // --- REQUISITO 3: Gerenciador de OTA ---
-  const [espIp, setEspIp] = useState<string>('192.168.0.22');
+  const [espIp, setEspIp] = useState<string>(
+    process.env.EXPO_PUBLIC_ESP_IP || '192.168.1.6'
+  );
   const [otaProgress, setOtaProgress] = useState<OtaProgress>({
     percentage: 0,
     loadedBytes: 0,

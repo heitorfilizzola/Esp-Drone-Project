@@ -1,7 +1,10 @@
 import mqtt, { MqttClient } from 'mqtt';
 
-export const DEFAULT_BROKER_URL = process.env.EXPO_PUBLIC_MQTT_BROKER_URL || 'ws://192.168.0.22:8083/mqtt';
-export const DEFAULT_TOPIC = process.env.EXPO_PUBLIC_MQTT_TOPIC || 'drone/#';
+export const DEFAULT_BROKER_URL = process.env.EXPO_PUBLIC_MQTT_BROKER_URL || 'ws://192.168.1.6:8083/mqtt';
+const rawTopic = process.env.EXPO_PUBLIC_MQTT_TOPIC;
+export const DEFAULT_TOPIC = (!rawTopic || rawTopic === 'drone/' || rawTopic === 'drone')
+  ? 'drone/#'
+  : rawTopic;
 export const DEFAULT_USERNAME = process.env.EXPO_PUBLIC_MQTT_USERNAME || 'esp32s3_tof90';
 export const DEFAULT_PASSWORD = process.env.EXPO_PUBLIC_MQTT_PASSWORD || '';
 
@@ -30,7 +33,10 @@ export const connectToDroneMQTT = (
   options?: ConnectOptions
 ): MqttClient => {
   const brokerUrl = options?.brokerUrl || DEFAULT_BROKER_URL;
-  const topic = options?.topic || DEFAULT_TOPIC;
+  let topic = options?.topic || DEFAULT_TOPIC;
+  if (topic === 'drone/' || topic === 'drone') {
+    topic = 'drone/#';
+  }
   const username = options?.username ?? DEFAULT_USERNAME;
   const password = options?.password ?? DEFAULT_PASSWORD;
 
