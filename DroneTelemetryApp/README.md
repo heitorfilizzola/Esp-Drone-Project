@@ -6,12 +6,24 @@ Aplicativo mobile desenvolvido em **React Native** com **Expo (SDK 58)** para re
 
 ## 📱 Recursos e Funcionalidades
 
-- **Conexão em Tempo Real:** Comunicação bidirecional contínua via WebSocket (`ws://<IP>:8083/mqtt`) com reconexão automática.
+O aplicativo conta com navegação dividida em três módulos principais:
+
+### 1. Aba Telemetria (Tempo Real & Métricas)
+- **Conexão em Tempo Real:** Comunicação bidirecional contínua via WebSocket (`ws://<IP>:8083/mqtt`) com reconexão automática e credenciais autenticadas.
 - **Monitoramento de Altitude (ToF 90°):** Exibição em tempo real da leitura em milímetros (mm) e centímetros (cm) proveniente do sensor Time-of-Flight (VL53L0X).
+- **Altitude Máxima e Mínima:** Rastreamento contínuo dos extremos de altitude atingidos durante o voo, com botão interativo para redefinir as estatísticas.
 - **Indicador de Alcance e Status:** Detecção automática de leituras válidas (*ONLINE*) ou fora do campo de medição (*ALCANCE*).
-- **Gráfico Histórico Dinâmico:** Visualização gráfica vetorial (SVG) da variação de altitude ao longo do tempo.
-- **Identificação do Dispositivo:** Exibição do `device_id` e identificação do módulo sensor ativo.
-- **Card de Conectividade:** Indicador luminoso em tempo real do estado de sincronização com o broker MQTT.
+- **Gráfico Histórico Dinâmico:** Visualização vetorial (SVG) com os últimos pontos de medição em tempo real.
+- **Alertas em Tempo Real:** Banners automáticos disparados pelo motor de IA ao detectar descidas abruptas, subidas aceleradas ou leituras instáveis.
+
+### 2. Aba OTA Firmware (Gravação via Wi-Fi)
+- **Atualização Over-The-Air:** Envio de arquivos compilados de firmware (`.bin`) diretamente para o endpoint HTTP do ESP32 (`/update`) sem fios.
+- **Monitoramento de Upload:** Barra de progresso visual com percentual de transferência, contagem de bytes e mensagens de status do ESP32.
+
+### 3. Aba IA Copilot (Diagnóstico de Voo)
+- **Score de Estabilidade (0–100%):** Avaliação estatística da dispersão e do desvio padrão das medições de altitude.
+- **Classificação Operacional:** Identificação automática do estado de voo (*POUSADO*, *ESTÁVEL*, *TURBULENTO*, *SUBINDO*, *DESCENDO*).
+- **Recomendações Técnicas:** Sugestões inteligentes para calibração de ganhos derivativos ($K_d$) da malha PID e diagnóstico da superfície refletora do solo.
 
 ---
 
@@ -80,14 +92,18 @@ As configurações de conexão e credenciais utilizam variáveis de ambiente ger
 
 2. Configure suas credenciais reais no arquivo `.env`:
    ```bash
-   EXPO_PUBLIC_MQTT_BROKER_URL=ws://192.168.0.22:8083/mqtt
-   EXPO_PUBLIC_MQTT_TOPIC=drone/#
+   EXPO_PUBLIC_MQTT_BROKER_URL=ws://192.168.1.6:8083/mqtt
+   EXPO_PUBLIC_MQTT_TOPIC="drone/#"
    EXPO_PUBLIC_MQTT_USERNAME=esp32s3_tof90
-   EXPO_PUBLIC_MQTT_PASSWORD=SUA_SENHA_MQTT
+   EXPO_PUBLIC_MQTT_PASSWORD="SUA_SENHA_MQTT"
+   EXPO_PUBLIC_ESP_IP=192.168.1.6
    ```
 
-> [!NOTE]
-> O IP `192.168.0.22` corresponde ao endereço da máquina local que executa o broker EMQX. Se o IP for alterado no DHCP da rede, basta atualizar a variável `EXPO_PUBLIC_MQTT_BROKER_URL`.
+> [!IMPORTANT]
+> **Atenção ao caractere `#` no `.env`:** No parser de ambiente do Expo/dotenv, qualquer valor contendo o símbolo `#` (como senhas com caracteres especiais ou o wildcard MQTT `drone/#`) **deve ser envolvido entre aspas duplas** (`"..."`). Caso contrário, o parser interpreta o `#` como o início de um comentário e descarta o restante da string, causando falhas de autenticação (`bad_username_or_password`) ou subscrições truncadas para `drone/`.
+
+> [!TIP]
+> O IP `192.168.1.6` corresponde ao endereço da máquina local que executa o broker EMQX. Se o IP for alterado no DHCP da rede, basta atualizar a variável `EXPO_PUBLIC_MQTT_BROKER_URL`. Sempre que modificar o arquivo `.env`, reinicie o Expo com cache limpo: `npx expo start -c`.
 
 ---
 
@@ -133,6 +149,14 @@ npx tsc --noEmit
 # Teste de empacotamento (bundler para iOS e Android)
 npx expo export
 ```
+
+---
+
+## 📂 Estrutura de Serviços
+
+* [`src/services/mqttService.ts`](src/services/mqttService.ts): Inicialização do cliente MQTT via WebSocket, reconexão resiliente, tratamento de eventos e sanitização automática de tópicos (`drone/#`).
+* [`src/services/aiTelemetryService.ts`](src/services/aiTelemetryService.ts): Motor Edge AI para detecção em tempo real de variações súbitas de altitude, desvio padrão e geração do relatório de diagnóstico de voo com recomendações de estabilidade e calibração PID.
+* [`src/services/otaService.ts`](src/services/otaService.ts): Gerenciador de upload de firmware compilado (`.bin`) via requisição HTTP multipart com monitoramento de progresso em tempo real.
 
 ---
 
