@@ -171,17 +171,46 @@ O LED WS2812B integrado no ESP32-S3 fornece feedback visual sobre o estado da ap
 
 ## 6. Instruções para Compilação e Verificação
 
-### 6.1. Configuração de Permissões de Porta no Linux
+### 6.1. Configuração de Credenciais Locais (`include/secrets.h`)
 
-Antes de realizar o upload do firmware, assegure-se de que o usuário possui permissão de escrita no nó `/dev/ttyACM0`:
+Por segurança, credenciais de Wi-Fi e MQTT foram desacopladas do código fonte e são mantidas em um arquivo ignorado pelo Git:
 
 ```bash
-sudo chmod 666 /dev/ttyACM0
-sudo usermod -a -G uucp $USER
-
+# A partir da pasta esp32s3-ToF90-test
+cp include/secrets.example.h include/secrets.h
 ```
 
-### 6.2. Compilação e Gravação
+Edite `include/secrets.h` com as configurações da sua rede e do broker:
+```c
+#define SECRET_WIFI_SSID     "SUA_REDE_WIFI"
+#define SECRET_WIFI_PASSWORD "SUA_SENHA_WIFI"
+
+#define SECRET_MQTT_BROKER   "192.168.1.6"
+#define SECRET_MQTT_PORT     1883
+
+#define SECRET_MQTT_USER     "esp32s3_tof90"
+#define SECRET_MQTT_PASS     "SUA_SENHA_MQTT"
+```
+
+### 6.2. Configuração de Permissões de Porta no Linux
+
+O ESP32-S3 utiliza interface USB CDC nativa. Para conceder permissão definitiva de acesso à porta serial sem precisar de `sudo` a cada reinicialização:
+
+```bash
+# Criar regra permanente no udev
+echo 'KERNEL=="ttyACM*", MODE="0666"' | sudo tee /etc/udev/rules.d/99-esp32.rules
+sudo udevadm control --reload-rules && sudo udevadm trigger
+
+# Adicionar usuário ao grupo uucp (ou dialout)
+sudo usermod -a -G uucp $USER
+```
+
+Caso prefira liberar de forma temporária:
+```bash
+sudo chmod 666 /dev/ttyACM*
+```
+
+### 6.3. Compilação e Gravação
 
 Via PlatformIO CLI:
 
@@ -191,10 +220,9 @@ pio run -t upload
 
 # Abrir o monitor serial
 pio device monitor
-
 ```
 
-### 6.3. Verificação no Banco de Dados
+### 6.4. Verificação no Banco de Dados
 
 Para confirmar a correta gravação das medições de teste no banco MariaDB:
 
