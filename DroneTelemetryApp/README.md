@@ -9,6 +9,15 @@ Aplicativo mobile desenvolvido em **React Native** com **Expo (SDK 58)** para re
 - **Conexão em Tempo Real:** Comunicação bidirecional contínua via WebSocket (`ws://<IP>:8083/mqtt`) com reconexão automática.
 - **Monitoramento de Altitude (ToF 90°):** Exibição em tempo real da leitura em milímetros (mm) e centímetros (cm) proveniente do sensor Time-of-Flight (VL53L0X).
 - **Indicador de Alcance e Status:** Detecção automática de leituras válidas (*ONLINE*) ou fora do campo de medição (*ALCANCE*).
+- **Métricas de Voo:** Cálculo dinâmico e retenção de altitude mínima e máxima atingidas, com opção de reset.
+- **Atualização de Firmware Over-The-Air (OTA):**
+  - Seletor nativo de arquivo binário (`.bin`) do dispositivo.
+  - Teste de conectividade e integridade do ESP32 ("Testar Ping") via endpoint HTTP `/status`.
+  - Transmissão multipart em tempo real com barra de progresso, percentual e bytes transmitidos.
+  - Trava de segurança para impedir reinicializações acidentais em voo.
+- **IA Copilot & Telemetria Inteligente:**
+  - Análise em tempo real de estabilidade e detecção de anomalias aerodinâmicas/superfície.
+  - Relatório diagnóstico de estabilidade de voo com pontuação (Score %) e recomendações automáticas.
 - **Gráfico Histórico Dinâmico:** Visualização gráfica vetorial (SVG) da variação de altitude ao longo do tempo.
 - **Identificação do Dispositivo:** Exibição do `device_id` e identificação do módulo sensor ativo.
 - **Card de Conectividade:** Indicador luminoso em tempo real do estado de sincronização com o broker MQTT.
@@ -141,4 +150,16 @@ npx expo export
 * **Framework:** [Expo](https://expo.dev/) (SDK 58) / [React Native](https://reactnative.dev/)
 * **Linguagem:** TypeScript
 * **Comunicação MQTT:** [`mqtt`](https://www.npmjs.com/package/mqtt) (WebSocket client)
+* **Envio OTA & Arquivos:** [`expo-file-system`](https://docs.expo.dev/versions/latest/sdk/filesystem/) & [`expo-document-picker`](https://docs.expo.dev/versions/latest/sdk/document-picker/)
 * **Gráficos e Vetores:** [`react-native-chart-kit`](https://www.npmjs.com/package/react-native-chart-kit) & [`react-native-svg`](https://www.npmjs.com/package/react-native-svg)
+
+---
+
+## 🔄 Fluxo de Atualização OTA (Over-The-Air)
+
+1. Conecte o smartphone à mesma rede Wi-Fi que o ESP32.
+2. Na aba **OTA Firmware**, insira o endereço IP local do ESP32.
+3. Pressione **Testar Ping** para validar que o ESP32 está respondendo e verificar o Heap livre.
+4. Clique em **Selecionar Arquivo de Firmware (.bin)** e aponte para o arquivo compilado pelo PlatformIO.
+5. Pressione **🚀 Iniciar Gravação OTA no ESP32** e acompanhe a barra de progresso e porcentagem em tempo real.
+6. Ao término, o ESP32 reinicia automaticamente com o novo firmware gravado.

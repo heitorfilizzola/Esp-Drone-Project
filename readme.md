@@ -134,8 +134,10 @@ A arquitetura do sistema divide-se em três pilares principais:
 ### 3. Camada de Apresentação (Aplicativo Mobile)
 * **Aplicativo Mobile:** Desenvolvido para fornecer uma experiência visual simplificada e objetiva ao operador em solo.
   * Conecta-se ao broker EMQX e assina o tópico de telemetria global (`drone/telemetry/#`).
-  * Exibe em tempo real a altitude atual em centímetros/metros.
+  * Exibe em tempo real a altitude atual em centímetros/metros e extremos de voo (máx/mín).
   * Apresenta gráficos de linha com a evolução temporal da altitude.
+  * **Atualização Over-The-Air (OTA):** Envio direto de binários `.bin` compilados para o microcontrolador via Wi-Fi, com monitoramento de progresso e validação de status.
+  * **IA Copilot & Telemetria:** Algoritmo embarcado de detecção de anomalias aerodinâmicas e relatório diagnóstico de estabilidade de voo.
   * Sinaliza o estado da conexão MQTT e eventuais alertas de perda de telemetria.
 
 ---
@@ -195,5 +197,7 @@ A arquitetura do sistema divide-se em três pilares principais:
 
 - [x] Validação de bancada do sensor ToF 90° via I2C com publicação MQTT.
 - [x] Desenvolvimento e estilização do Aplicativo Mobile para consumo dos tópicos do EMQX.
+- [x] Implementação de atualização de firmware Over-The-Air (OTA) via Wi-Fi direto pelo App Mobile.
+- [x] Integração de IA Copilot de telemetria com análise em tempo real de estabilidade.
 - [ ] Integração do driver do ToF 90° no firmware oficial do ESP-Drone (ESP32-S2).
 - [ ] Ajuste da malha de controle de altitude (PID/fusão com barômetro/IMU se aplicável).

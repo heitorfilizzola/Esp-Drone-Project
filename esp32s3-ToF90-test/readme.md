@@ -38,6 +38,7 @@ O sistema realiza a aquisição de dados do sensor Time-of-Flight (ToF), formata
 * **Sensor de Distância:** M5Stack ToF-90° U196 (Controlador VL53L0X via I2C)
 * **Framework de Desenvolvimento:** Arduino / PlatformIO
 * **Bibliotecas C++:**
+* `WebServer` & `Update`: Servidor Web HTTP local na porta 80 e gravação de firmware Over-The-Air (OTA).
 * `m5stack/M5UnitUnified`: Gerenciamento do barramento de sensores M5Stack.
 * `m5stack/M5Unit-TOF`: Driver para leitura de distância do sensor VL53L0X.
 * `knolleary/PubSubClient`: Conectividade MQTT.
@@ -163,15 +164,35 @@ O LED WS2812B integrado no ESP32-S3 fornece feedback visual sobre o estado da ap
 
 | Cor | Estado da Aplicação |
 | --- | --- |
-| **Azul** | Inicialização de periféricos, scan I2C ou tentativa de conexão Wi-Fi. |
-| **Verde** | Operação nominal: Conectado ao Wi-Fi/MQTT e publicando mensagens com sucesso. |
-| **Vermelho** | Falha de hardware (I2C), falha na conexão Wi-Fi ou rejeição de autenticação/ACL pelo broker. |
+| **Azul** | Inicialização de periféricos, tentativa de conexão Wi-Fi ou **gravação OTA em andamento**. |
+| **Verde** | Operação nominal: Conectado ao Wi-Fi/MQTT ou **gravação OTA concluída com sucesso**. |
+| **Vermelho** | Falha de hardware (I2C), falha no Wi-Fi, erro no MQTT ou **erro durante gravação OTA**. |
 
 ---
 
-## 6. Instruções para Compilação e Verificação
+## 6. Atualização de Firmware Over-The-Air (OTA)
 
-### 6.1. Configuração de Permissões de Porta no Linux
+O firmware implementa um servidor HTTP local (porta 80) permitindo gravação sem fio via aplicativo mobile ou chamada HTTP multipart:
+
+### Endpoints Disponíveis:
+* `GET /status`: Retorna JSON com status de conectividade, memória Heap disponível, tempo de atividade e prontidão OTA.
+* `POST /update`: Endpoint multipart/form-data (campo `update`) para transmissão do binário `.bin`. Durante o upload, o ESP32 suspende temporariamente o sensor ToF e as publicações MQTT para estabilidade da gravação na Flash, reiniciando automaticamente após a validação.
+
+### Tabela de Partições (OTA):
+Configurada no `platformio.ini` via `board_build.partitions = default_8MB.csv`, alocando slots duplos de 3.264 KB (`ota_0` e `ota_1`).
+
+### Como gerar o binário para OTA:
+```bash
+pio run
+```
+O arquivo `.bin` gerado estará localizado em:
+`.pio/build/esp32-s3-devkitc-1/firmware.bin`
+
+---
+
+## 7. Instruções para Compilação e Verificação
+
+### 7.1. Configuração de Permissões de Porta no Linux
 
 Antes de realizar o upload do firmware, assegure-se de que o usuário possui permissão de escrita no nó `/dev/ttyACM0`:
 
@@ -181,12 +202,12 @@ sudo usermod -a -G uucp $USER
 
 ```
 
-### 6.2. Compilação e Gravação
+### 7.2. Compilação e Gravação
 
 Via PlatformIO CLI:
 
 ```bash
-# Compilar e gravar o firmware
+# Compilar e gravar o firmware via cabo USB (primeira vez)
 pio run -t upload
 
 # Abrir o monitor serial
@@ -194,7 +215,7 @@ pio device monitor
 
 ```
 
-### 6.3. Verificação no Banco de Dados
+### 7.3. Verificação no Banco de Dados
 
 Para confirmar a correta gravação das medições de teste no banco MariaDB:
 
