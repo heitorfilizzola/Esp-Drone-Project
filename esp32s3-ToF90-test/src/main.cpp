@@ -3,6 +3,8 @@
 #include <WiFi.h>
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
+#include <WebServer.h>
+#include <Update.h>
 #include <M5UnitUnified.hpp>
 #include <M5UnitUnifiedTOF.hpp>
 #include <Adafruit_NeoPixel.h>
@@ -77,11 +79,128 @@ constexpr uint8_t PIN_SCL = 5;
 // Instâncias
 WiFiClient espClient;
 PubSubClient mqttClient(espClient);
+WebServer server(80);
+bool isOtaUpdating = false;
+static bool isFirstOtaChunk = true;
 m5::unit::UnitUnified Units;
 m5::unit::UnitToF90 sensor;
 
 uint32_t lastPublishTime = 0;
 const uint32_t PUBLISH_INTERVAL_MS = 200;
+
+// ==========================================================
+// CONFIGURAÇÃO DO SERVIDOR WEB E OTA HTTP (PORTA 80)
+// ==========================================================
+void setupOtaServer() {
+    // Endpoint para teste de conectividade e status
+    server.on("/", HTTP_GET, []() {
+        server.sendHeader("Access-Control-Allow-Origin", "*");
+        server.send(200, "application/json", "{\"status\":\"online\",\"device_id\":\"" + String(CLIENT_ID) + "\",\"service\":\"ESP32 Drone OTA\"}");
+    });
+
+    server.on("/status", HTTP_GET, []() {
+        server.sendHeader("Access-Control-Allow-Origin", "*");
+        JsonDocument doc;
+        doc["status"] = "online";
+        doc["device_id"] = CLIENT_ID;
+        doc["ip"] = WiFi.localIP().toString();
+        doc["free_heap"] = ESP.getFreeHeap();
+        doc["uptime_ms"] = millis();
+        doc["ota_ready"] = true;
+        String response;
+        serializeJson(doc, response);
+        server.send(200, "application/json", response);
+    });
+
+    // Suporte a CORS Preflight para requisições do App Mobile (Web / Emuladores)
+    server.on("/update", HTTP_OPTIONS, []() {
+        server.sendHeader("Access-Control-Allow-Origin", "*");
+        server.sendHeader("Access-Control-Allow-Methods", "POST, GET, OPTIONS");
+        server.sendHeader("Access-Control-Allow-Headers", "Content-Type, X-Requested-With");
+        server.send(204);
+    });
+
+    server.on("/status", HTTP_OPTIONS, []() {
+        server.sendHeader("Access-Control-Allow-Origin", "*");
+        server.sendHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+        server.sendHeader("Access-Control-Allow-Headers", "Content-Type, X-Requested-With");
+        server.send(204);
+    });
+
+    // Rota POST /update com handler de upload multipart
+    server.on("/update", HTTP_POST, []() {
+        server.sendHeader("Connection", "close");
+        server.sendHeader("Access-Control-Allow-Origin", "*");
+        if (Update.hasError()) {
+            String errDetail = "FALHA NO OTA: " + String(Update.errorString()) + " (codigo " + String(Update.getError()) + ")";
+            server.send(500, "text/plain", errDetail);
+            setRgbColor(COLOR_RED);
+            isOtaUpdating = false;
+        } else {
+            server.send(200, "text/plain", "Firmware gravado com sucesso! Reiniciando ESP32...");
+            setRgbColor(COLOR_GREEN);
+            delay(1000);
+            ESP.restart();
+        }
+    }, []() {
+        HTTPUpload& upload = server.upload();
+        if (upload.status == UPLOAD_FILE_START) {
+            isOtaUpdating = true;
+            isFirstOtaChunk = true;
+            Serial.printf("\n[OTA] Recebendo arquivo: %s\n", upload.filename.c_str());
+            setRgbColor(COLOR_BLUE);
+
+            if (!Update.begin(UPDATE_SIZE_UNKNOWN)) {
+                Serial.printf("[OTA][ERRO] Update.begin falhou: %s (cod %d)\n", Update.errorString(), Update.getError());
+                Update.printError(Serial);
+                setRgbColor(COLOR_RED);
+            }
+        } else if (upload.status == UPLOAD_FILE_WRITE) {
+            uint8_t* writeBuf = upload.buf;
+            size_t writeSize = upload.currentSize;
+
+            // O parser multipart do WebServer do ESP32 pode deixar sobras de cabeçalhos (\r\n ou Content-Length)
+            // enviados por clientes como Android/OkHttp. Procuramos o magic byte 0xE9 nos primeiros bytes do primeiro bloco.
+            if (isFirstOtaChunk) {
+                isFirstOtaChunk = false;
+                size_t offset = 0;
+                while (offset < writeSize && writeBuf[offset] != 0xE9) {
+                    offset++;
+                }
+                if (offset > 0 && offset < writeSize) {
+                    Serial.printf("[OTA] Ajustando cabecalho HTTP: pulando %u bytes de preambulo antes do magic byte 0xE9\n", (unsigned int)offset);
+                    writeBuf += offset;
+                    writeSize -= offset;
+                } else if (offset >= writeSize) {
+                    Serial.println("[OTA][ERRO] Magic byte 0xE9 nao encontrado no primeiro bloco recebido!");
+                }
+            }
+
+            if (Update.write(writeBuf, writeSize) != writeSize) {
+                Serial.printf("[OTA][ERRO] Update.write falhou: %s (cod %d)\n", Update.errorString(), Update.getError());
+                Update.printError(Serial);
+                setRgbColor(COLOR_RED);
+            }
+        } else if (upload.status == UPLOAD_FILE_END) {
+            if (Update.end(true)) {
+                Serial.printf("[OTA] Gravacao concluida com sucesso (%u bytes)!\n", upload.totalSize);
+            } else {
+                Serial.printf("[OTA][ERRO] Update.end falhou: %s (cod %d, total %u bytes)\n", Update.errorString(), Update.getError(), upload.totalSize);
+                Update.printError(Serial);
+                setRgbColor(COLOR_RED);
+            }
+            isOtaUpdating = false;
+        } else if (upload.status == UPLOAD_FILE_ABORTED) {
+            Update.end();
+            Serial.println("[OTA] Gravacao abortada pelo cliente!");
+            isOtaUpdating = false;
+            setRgbColor(COLOR_RED);
+        }
+    });
+
+    server.begin();
+    Serial.println("[HTTP] Servidor Web e OTA escutando na porta 80.");
+}
 
 void connectWiFi() {
     Serial.printf("\n[WiFi] Conectando a %s", WIFI_SSID);
@@ -170,6 +289,7 @@ void setup() {
     Serial.println("==========================================");
 
     connectWiFi();
+    setupOtaServer();
     mqttClient.setServer(MQTT_BROKER, MQTT_PORT);
 
     pinMode(PIN_SDA, INPUT_PULLUP);
@@ -192,6 +312,14 @@ void setup() {
 }
 
 void loop() {
+    server.handleClient();
+
+    // Se estiver em processo de atualização OTA, pausa MQTT e sensores para estabilidade da gravação Flash
+    if (isOtaUpdating) {
+        delay(2);
+        return;
+    }
+
     if (WiFi.status() == WL_CONNECTED) {
         if (!mqttClient.connected()) {
             setRgbColor(COLOR_RED);

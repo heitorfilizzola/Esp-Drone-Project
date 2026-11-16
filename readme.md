@@ -133,10 +133,13 @@ A arquitetura do sistema divide-se em três pilares principais:
 * **Broker EMQX:** Servidor de mensagens MQTT escalável e de baixa latência responsável por receber os pacotes de telemetria publicados pelo drone (`drone/sensor/tof90`) e encaminhá-los de maneira desacoplada aos clientes inscritos.
 
 ### 3. Camada de Apresentação (Aplicativo Mobile)
-* **Aplicativo Mobile:** Desenvolvido em React Native / Expo para fornecer controle e acompanhamento em solo:
-  * **Telemetria:** Conecta-se via WebSocket ao EMQX, assina `drone/#` e exibe em tempo real a altitude em milímetros e centímetros, status do sensor ToF-90, gráficos de evolução temporal e rastreamento de **Altitude Máxima e Mínima** (com botão de reset de estatísticas).
-  * **Gerenciador de OTA:** Permite enviar arquivos de firmware compilados (`.bin`) diretamente para o ESP32 via Wi-Fi (HTTP multipart) com acompanhamento percentual do upload.
-  * **IA Copilot & Detecção de Anomalias:** Motor de inteligência que analisa variações abruptas de altitude em tempo real, emite alertas (queda súbita, subida acelerada, solo irregular) e gera relatórios com pontuação de estabilidade de voo e recomendações para ajuste de PID.
+* **Aplicativo Mobile:** Desenvolvido para fornecer uma experiência visual simplificada e objetiva ao operador em solo.
+  * Conecta-se ao broker EMQX e assina o tópico de telemetria global (`drone/telemetry/#`).
+  * Exibe em tempo real a altitude atual em centímetros/metros e extremos de voo (máx/mín).
+  * Apresenta gráficos de linha com a evolução temporal da altitude.
+  * **Atualização Over-The-Air (OTA):** Envio direto de binários `.bin` compilados para o microcontrolador via Wi-Fi, com monitoramento de progresso e validação de status.
+  * **IA Copilot & Telemetria:** Algoritmo embarcado de detecção de anomalias aerodinâmicas e relatório diagnóstico de estabilidade de voo.
+  * Sinaliza o estado da conexão MQTT e eventuais alertas de perda de telemetria.
 
 ---
 
@@ -195,6 +198,7 @@ A arquitetura do sistema divide-se em três pilares principais:
 
 - [x] Validação de bancada do sensor ToF 90° via I2C com publicação MQTT.
 - [x] Desenvolvimento e estilização do Aplicativo Mobile para consumo dos tópicos do EMQX.
-- [x] Implementação de monitoramento de altitude máxima/mínima, atualização OTA e IA Copilot de estabilidade no app.
+- [x] Implementação de atualização de firmware Over-The-Air (OTA) via Wi-Fi direto pelo App Mobile.
+- [x] Integração de IA Copilot de telemetria com análise em tempo real de estabilidade.
 - [ ] Integração do driver do ToF 90° no firmware oficial do ESP-Drone (ESP32-S2).
 - [ ] Ajuste da malha de controle de altitude (PID/fusão com barômetro/IMU se aplicável).
