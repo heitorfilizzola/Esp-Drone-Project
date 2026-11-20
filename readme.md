@@ -31,9 +31,9 @@ A arquitetura do sistema divide-se em três pilares principais:
 |                                       | - Cliente MQTT & Protocolo CRTP |     |
 |                                       +---------------------------------+     |
 +---------------------------------------/----------------\----------------------+
-                                       /                  \
+                                        /                  \
               Comandos / Telemetria   /                    \ MQTT Publish
-                   (CRTP via Wi-Fi/UDP)                      \ (drone/telemetry/altitude)
+                   (CRTP via Wi-Fi/UDP)                      \ (drone/sensor/tof90)
                                      /                      \
 +-----------------------------------|------------------------|------------------+
 |                                  v                         v                  |
@@ -47,7 +47,7 @@ A arquitetura do sistema divide-se em três pilares principais:
 |                                  ESTAÇÃO PC                |                  |
 +------------------------------------------------------------|------------------+
                                                              |
-                                               Wi-Fi / MQTT  | Sub: drone/telemetry/#
+                                               Wi-Fi / MQTT  | Sub: drone/#
                                                              v
 +-------------------------------------------------------------------------------+
 |                              CAMADA DE APRESENTAÇÃO                           |
@@ -55,9 +55,10 @@ A arquitetura do sistema divide-se em três pilares principais:
 |                   +---------------------------------------+                   |
 |                   |           Aplicativo Mobile           |                   |
 |                   |                                       |                   |
-|                   | - Dashboard de Telemetria             |                   |
-|                   | - Exibição de Altitude em Tempo Real  |                   |
-|                   | - Gráficos e Status de Conexão        |                   |
+|                   | - Dashboard de Telemetria (ToF 90°)   |                   |
+|                   | - Altitude Máxima e Mínima em Tempo   |                   |
+|                   | - Gerenciador de Gravação OTA (Wi-Fi) |                   |
+|                   | - IA Copilot de Estabilidade de Voo   |                   |
 |                   +---------------------------------------+                   |
 +-------------------------------------------------------------------------------+
 ```
@@ -129,7 +130,7 @@ A arquitetura do sistema divide-se em três pilares principais:
 
 ### 2. Estação PC e Mensageria
 * **Software de Controle de Voo:** Interface de comando de baixo nível e sintonia (Crazyflie Client ou QGroundControl) comunicando via **CRTP (Crazy RealTime Protocol)** sobre Wi-Fi/UDP. Permite controle manual por joystick, calibração de PID e diagnóstico operacional direto.
-* **Broker EMQX:** Servidor de mensagens MQTT escalável e de baixa latência responsável por receber os pacotes de telemetria publicados pelo drone (`drone/telemetry/altitude`) e encaminhá-los de maneira desacoplada aos clientes inscritos.
+* **Broker EMQX:** Servidor de mensagens MQTT escalável e de baixa latência responsável por receber os pacotes de telemetria publicados pelo drone (`drone/sensor/tof90`) e encaminhá-los de maneira desacoplada aos clientes inscritos.
 
 ### 3. Camada de Apresentação (Aplicativo Mobile)
 * **Aplicativo Mobile:** Desenvolvido para fornecer uma experiência visual simplificada e objetiva ao operador em solo.
@@ -185,19 +186,30 @@ A arquitetura do sistema divide-se em três pilares principais:
 
 ```text
 .
-├── DroneTelemetryApp/     # Aplicativo mobile React Native (Expo SDK 58) para telemetria em tempo real
-├── esp32s3-ToF90-test/    # Firmware e validação de bancada do sensor ToF 90° e MQTT (ESP32-S3)
+├── DroneTelemetryApp/     # Aplicativo mobile React Native (Expo) para telemetria e diagnóstico IA
+├── esp32s3-ToF90-test/    # Firmware do drone (ESP32-S3) com ToF-90, MQTT e cliente HTTPUpdate OTA
+├── server/                # Servidor Web e Central de Atualizações Over-The-Air (OTA) com Painel Web
 ├── readme.md              # Documentação geral da arquitetura do projeto
 └── ...
 ```
 
 ---
 
-## 🚀 Próximas Etapas
+## 🚀 Arquitetura de Atualização OTA Centralizada pelo Servidor
+
+Toda a gestão de firmware agora é controlada diretamente pelo **Servidor Central (`server/`)** via interface Web:
+
+1. **Painel Web:** O operador acessa o dashboard em `http://<IP_DO_SERVIDOR>:5000` com visualização dos drones conectados e o botão de disparo de atualização.
+2. **Disparo via MQTT:** Ao clicar em **"INICIAR ATUALIZAÇÃO DE FIRMWARE (OTA)"**, o servidor publica uma ordem no tópico `drone/cmd/ota` com a URL do binário (`http://<IP_DO_SERVIDOR>:5000/firmware.bin`).
+3. **Pull & Gravação no ESP32:** Cada ESP32 conectado recebe a instrução, baixa o binário em blocos via biblioteca nativa `HTTPUpdate`, reporta progresso em tempo real no tópico `drone/ota/status` e reinicia automaticamente na nova versão.
+
+---
+
+## 🚀 Status do Projeto
 
 - [x] Validação de bancada do sensor ToF 90° via I2C com publicação MQTT.
-- [x] Desenvolvimento e estilização do Aplicativo Mobile para consumo dos tópicos do EMQX.
-- [x] Implementação de atualização de firmware Over-The-Air (OTA) via Wi-Fi direto pelo App Mobile.
-- [x] Integração de IA Copilot de telemetria com análise em tempo real de estabilidade.
+- [x] Desenvolvimento do Aplicativo Mobile para consumo dos tópicos do EMQX e diagnóstico com IA.
+- [x] Arquitetura de Atualização de Firmware Over-The-Air (OTA) centralizada no Servidor com Painel Web.
+- [x] Disparo de OTA para múltiplos dispositivos em simultâneo via MQTT e HTTPUpdate.
 - [ ] Integração do driver do ToF 90° no firmware oficial do ESP-Drone (ESP32-S2).
 - [ ] Ajuste da malha de controle de altitude (PID/fusão com barômetro/IMU se aplicável).
