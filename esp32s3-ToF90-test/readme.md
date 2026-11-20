@@ -38,7 +38,7 @@ O sistema realiza a aquisição de dados do sensor Time-of-Flight (ToF), formata
 * **Sensor de Distância:** M5Stack ToF-90° U196 (Controlador VL53L0X via I2C)
 * **Framework de Desenvolvimento:** Arduino / PlatformIO
 * **Bibliotecas C++:**
-* `WebServer` & `Update`: Servidor Web HTTP local na porta 80 e gravação de firmware Over-The-Air (OTA).
+* `HTTPUpdate`, `WebServer` & `Update`: Atualização de firmware Over-The-Air (OTA) puxada do servidor central via MQTT (`HTTPUpdate`) e suporte a status HTTP local.
 * `m5stack/M5UnitUnified`: Gerenciamento do barramento de sensores M5Stack.
 * `m5stack/M5Unit-TOF`: Driver para leitura de distância do sensor VL53L0X.
 * `knolleary/PubSubClient`: Conectividade MQTT.

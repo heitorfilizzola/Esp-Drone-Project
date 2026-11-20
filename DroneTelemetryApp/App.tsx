@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useMemo } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   StyleSheet,
   Text,
@@ -7,8 +7,6 @@ import {
   Dimensions,
   ScrollView,
   TouchableOpacity,
-  TextInput,
-  ActivityIndicator,
 } from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
 import { connectToDroneMQTT, TelemetryPayload } from './src/services/mqttService';
@@ -17,26 +15,12 @@ import {
   TelemetryAnomaly,
   FlightDiagnosticReport,
 } from './src/services/aiTelemetryService';
-import * as DocumentPicker from 'expo-document-picker';
-import {
-  uploadFirmwareToESP,
-  checkEspOtaStatus,
-  OtaProgress,
-  EspStatusResult,
-} from './src/services/otaService';
-
-interface SelectedFirmware {
-  name: string;
-  size?: number;
-  uri: string;
-  blob?: Blob;
-}
 
 const MAX_HISTORY_POINTS = 12;
 const screenWidth = Dimensions.get('window').width;
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'TELEMETRIA' | 'OTA' | 'IA'>('TELEMETRIA');
+  const [activeTab, setActiveTab] = useState<'TELEMETRIA' | 'IA'>('TELEMETRIA');
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [telemetry, setTelemetry] = useState<TelemetryPayload>({
     distance_mm: 0,
@@ -49,20 +33,6 @@ export default function App() {
   // --- REQUISITO 2: Altitude Máxima e Mínima ---
   const [maxAltitude, setMaxAltitude] = useState<number | null>(null);
   const [minAltitude, setMinAltitude] = useState<number | null>(null);
-
-  const [espIp, setEspIp] = useState<string>(
-    process.env.EXPO_PUBLIC_ESP_IP || '192.168.1.6'
-  );
-  const [otaProgress, setOtaProgress] = useState<OtaProgress>({
-    percentage: 0,
-    loadedBytes: 0,
-    totalBytes: 0,
-    status: 'idle',
-  });
-  const [otaLog, setOtaLog] = useState<string>('Pronto para envio de firmware.');
-  const [selectedFirmware, setSelectedFirmware] = useState<SelectedFirmware | null>(null);
-  const [isCheckingEsp, setIsCheckingEsp] = useState<boolean>(false);
-  const [espCheckResult, setEspCheckResult] = useState<EspStatusResult | null>(null);
 
   // --- REQUISITO 4: Inteligência Artificial (Edge AI & Copilot) ---
   const aiEngine = useRef(new AiTelemetryEngine()).current;
@@ -122,77 +92,6 @@ export default function App() {
     setAiReport(null);
   };
 
-  // Função para selecionar arquivo de firmware (.bin)
-  const handlePickFirmware = async () => {
-    try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: '*/*',
-        copyToCacheDirectory: true,
-      });
-
-      if (!result.canceled && result.assets && result.assets.length > 0) {
-        const asset = result.assets[0];
-        const isBin = asset.name.toLowerCase().endsWith('.bin');
-        setSelectedFirmware({
-          name: asset.name,
-          size: asset.size,
-          uri: asset.uri,
-          blob: asset.file,
-        });
-        const sizeStr = asset.size ? ` (${(asset.size / 1024).toFixed(1)} KB)` : '';
-        if (!isBin) {
-          setOtaLog(`Aviso: '${asset.name}' pode não ser um binário válido. Esperado arquivo .bin.`);
-        } else if (asset.size && asset.size < 100000) {
-          setOtaLog(
-            `⚠️ Atenção: '${asset.name}' tem apenas ${(asset.size / 1024).toFixed(
-              1
-            )} KB. Um binário do ESP32 deve ter ~800 KB. Verifique se o arquivo não foi corrompido.`
-          );
-        } else {
-          setOtaLog(`Arquivo selecionado: ${asset.name}${sizeStr}. Pronto para upload.`);
-        }
-      }
-    } catch (error: any) {
-      setOtaLog(`Erro ao selecionar arquivo: ${error?.message || error}`);
-    }
-  };
-
-  // Função para testar a conectividade HTTP com o ESP32 (Ping / Status)
-  const handleTestEspConnection = async () => {
-    if (!espIp.trim()) {
-      setOtaLog('Informe o endereço IP do ESP32 para testar a conexão.');
-      return;
-    }
-    setIsCheckingEsp(true);
-    setOtaLog(`Testando conexão com ESP32 em http://${espIp}/status...`);
-    const res = await checkEspOtaStatus(espIp);
-    setIsCheckingEsp(false);
-    setEspCheckResult(res);
-    setOtaLog(res.message);
-  };
-
-  // Função para acionar o upload OTA
-  const handleStartOta = async () => {
-    if (!selectedFirmware) {
-      setOtaLog('Erro: Selecione um arquivo de firmware (.bin) antes de iniciar a gravação.');
-      return;
-    }
-    if (!espIp.trim()) {
-      setOtaLog('Erro: Informe o endereço IP do ESP32 na rede Wi-Fi.');
-      return;
-    }
-
-    setOtaLog(`Iniciando transmissão de ${selectedFirmware.name} para http://${espIp}/update...`);
-    const result = await uploadFirmwareToESP({
-      espIp,
-      firmwareUri: selectedFirmware.uri,
-      firmwareBlob: selectedFirmware.blob,
-      firmwareName: selectedFirmware.name,
-      onProgress: (p) => setOtaProgress(p),
-    });
-    setOtaLog(result.message);
-  };
-
   // Função para acionar diagnóstico com IA Copilot
   const handleGenerateAiReport = () => {
     const report = aiEngine.generateFlightReport(maxAltitude ?? 0, minAltitude ?? 0);
@@ -212,14 +111,6 @@ export default function App() {
           >
             <Text style={[styles.tabText, activeTab === 'TELEMETRIA' && styles.tabTextActive]}>
               Telemetria
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tabButton, activeTab === 'OTA' && styles.tabButtonActive]}
-            onPress={() => setActiveTab('OTA')}
-          >
-            <Text style={[styles.tabText, activeTab === 'OTA' && styles.tabTextActive]}>
-              OTA Firmware
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -356,178 +247,7 @@ export default function App() {
         )}
 
         {/* ============================================================== */}
-        {/* ABA 2: GERENCIAMENTO DE ATUALIZAÇÃO OTA (OVER-THE-AIR)         */}
-        {/* ============================================================== */}
-        {activeTab === 'OTA' && (
-          <View style={styles.card}>
-            <Text style={styles.sectionHeading}>Atualização de Firmware (OTA)</Text>
-            <Text style={styles.descriptionText}>
-              Transfira o binário compilado (.bin) do firmware diretamente para o ESP32 via
-              Wi-Fi sem necessidade de conectar cabo USB.
-            </Text>
-
-            {/* Configuração de IP do ESP32 */}
-            <Text style={styles.inputLabel}>Endereço IP do ESP32 na Rede Wi-Fi:</Text>
-            <View style={styles.ipInputRow}>
-              <TextInput
-                style={[styles.textInput, styles.ipInputFlex]}
-                value={espIp}
-                onChangeText={(val) => {
-                  setEspIp(val);
-                  setEspCheckResult(null);
-                }}
-                placeholder="ex: 192.168.0.22"
-                placeholderTextColor="#666"
-                keyboardType="numeric"
-              />
-              <TouchableOpacity
-                style={[styles.pingButton, isCheckingEsp && styles.buttonDisabled]}
-                onPress={handleTestEspConnection}
-                disabled={isCheckingEsp || otaProgress.status === 'uploading'}
-              >
-                {isCheckingEsp ? (
-                  <ActivityIndicator size="small" color="#00E5FF" />
-                ) : (
-                  <Text style={styles.pingButtonText}>Testar Ping</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-
-            {/* Feedback do Teste de Conexão */}
-            {espCheckResult && (
-              <View
-                style={[
-                  styles.statusBadge,
-                  espCheckResult.online ? styles.statusBadgeOnline : styles.statusBadgeOffline,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.statusBadgeText,
-                    espCheckResult.online ? styles.statusTextOnline : styles.statusTextOffline,
-                  ]}
-                >
-                  {espCheckResult.online ? '🟢 ' : '🔴 '}
-                  {espCheckResult.message}
-                </Text>
-              </View>
-            )}
-
-            {/* Seletor de Arquivo de Firmware */}
-            <Text style={styles.inputLabel}>Arquivo de Firmware (.bin):</Text>
-            <TouchableOpacity
-              style={[
-                styles.filePickerButton,
-                otaProgress.status === 'uploading' && styles.buttonDisabled,
-              ]}
-              onPress={handlePickFirmware}
-              disabled={otaProgress.status === 'uploading'}
-            >
-              <Text style={styles.filePickerButtonText}>
-                {selectedFirmware ? '🔄 Trocar Arquivo .bin' : '📁 Selecionar Arquivo de Firmware (.bin)'}
-              </Text>
-            </TouchableOpacity>
-
-            {selectedFirmware ? (
-              <View style={styles.selectedFileBox}>
-                <View style={styles.fileIconBox}>
-                  <Text style={styles.fileIcon}>📄</Text>
-                </View>
-                <View style={styles.fileDetails}>
-                  <Text style={styles.fileName} numberOfLines={1}>
-                    {selectedFirmware.name}
-                  </Text>
-                  <Text style={styles.fileMeta}>
-                    {selectedFirmware.size
-                      ? `${(selectedFirmware.size / 1024).toFixed(1)} KB`
-                      : 'Tamanho não determinado'}{' '}
-                    • Binário pronto
-                  </Text>
-                </View>
-                <TouchableOpacity
-                  onPress={() => setSelectedFirmware(null)}
-                  disabled={otaProgress.status === 'uploading'}
-                  style={styles.fileRemoveButton}
-                >
-                  <Text style={styles.fileRemoveText}>✕</Text>
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <View style={styles.filePlaceholderBox}>
-                <Text style={styles.filePlaceholderText}>
-                  Nenhum arquivo selecionado. Selecione o firmware gerado pelo PlatformIO (.pio/build/.../firmware.bin).
-                </Text>
-              </View>
-            )}
-
-            {/* Painel de Status do Envio OTA */}
-            <View style={styles.otaStatusBox}>
-              <Text style={styles.otaStatusLabel}>Status da Gravação OTA:</Text>
-              <Text style={styles.otaStatusValue}>
-                {otaProgress.status === 'uploading'
-                  ? `Transmitindo: ${otaProgress.percentage}% (${(otaProgress.loadedBytes / 1024).toFixed(0)} / ${(otaProgress.totalBytes / 1024).toFixed(0)} KB)`
-                  : otaProgress.status === 'verifying'
-                  ? 'Verificando Hash e Gravando na Flash...'
-                  : otaProgress.status === 'success'
-                  ? 'Concluído com Sucesso! ESP32 Reiniciando.'
-                  : otaProgress.status === 'error'
-                  ? 'Erro na Atualização'
-                  : 'Aguardando Início'}
-              </Text>
-
-              {/* Barra de Progresso Customizada */}
-              <View style={styles.progressBarBackground}>
-                <View
-                  style={[
-                    styles.progressBarFill,
-                    {
-                      width: `${otaProgress.percentage}%`,
-                      backgroundColor:
-                        otaProgress.status === 'error'
-                          ? '#FF1744'
-                          : otaProgress.status === 'success'
-                          ? '#00E676'
-                          : '#00E5FF',
-                    },
-                  ]}
-                />
-              </View>
-              <Text style={styles.logText}>{otaLog}</Text>
-            </View>
-
-            {/* Botão de Envio */}
-            <TouchableOpacity
-              style={[
-                styles.primaryButton,
-                (otaProgress.status === 'uploading' || !selectedFirmware) && styles.buttonDisabled,
-              ]}
-              onPress={handleStartOta}
-              disabled={otaProgress.status === 'uploading' || !selectedFirmware}
-            >
-              {otaProgress.status === 'uploading' ? (
-                <View style={styles.uploadingButtonContent}>
-                  <ActivityIndicator color="#000" size="small" style={{ marginRight: 8 }} />
-                  <Text style={styles.primaryButtonText}>Gravando na Flash...</Text>
-                </View>
-              ) : (
-                <Text style={styles.primaryButtonText}>
-                  {selectedFirmware ? '🚀 Iniciar Gravação OTA no ESP32' : '⚠️ Selecione o Arquivo .bin Primeiro'}
-                </Text>
-              )}
-            </TouchableOpacity>
-
-            <View style={styles.warningBox}>
-              <Text style={styles.warningTitle}>⚠️ Trava de Segurança Crítica:</Text>
-              <Text style={styles.warningText}>
-                O OTA reinicia o ESP32 imediatamente após a gravação. NUNCA realize atualização OTA
-                com os motores armados ou drone em voo.
-              </Text>
-            </View>
-          </View>
-        )}
-
-        {/* ============================================================== */}
-        {/* ABA 3: INTELIGÊNCIA ARTIFICIAL (DIAGNÓSTICO E COPILOT)         */}
+        {/* ABA 2: INTELIGÊNCIA ARTIFICIAL (DIAGNÓSTICO E COPILOT)         */}
         {/* ============================================================== */}
         {activeTab === 'IA' && (
           <View style={styles.card}>
@@ -667,102 +387,7 @@ const styles = StyleSheet.create({
   alertTitle: { color: '#FFF', fontWeight: 'bold', fontSize: 14, marginBottom: 2 },
   alertText: { color: '#FFF', fontSize: 12 },
 
-  /* Formulários e OTA */
-  inputLabel: { color: '#DDD', fontSize: 13, marginBottom: 6 },
-  ipInputRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 14 },
-  ipInputFlex: { flex: 1, marginBottom: 0, marginRight: 8 },
-  pingButton: {
-    backgroundColor: '#1E1E1E',
-    borderColor: '#00E5FF',
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  pingButtonText: { color: '#00E5FF', fontSize: 13, fontWeight: 'bold' },
-  statusBadge: { padding: 10, borderRadius: 8, marginBottom: 14 },
-  statusBadgeOnline: {
-    backgroundColor: 'rgba(0, 230, 118, 0.12)',
-    borderColor: '#00E676',
-    borderWidth: 1,
-  },
-  statusBadgeOffline: {
-    backgroundColor: 'rgba(255, 23, 68, 0.12)',
-    borderColor: '#FF1744',
-    borderWidth: 1,
-  },
-  statusBadgeText: { fontSize: 12, fontWeight: '600' },
-  statusTextOnline: { color: '#00E676' },
-  statusTextOffline: { color: '#FF5252' },
-  filePickerButton: {
-    backgroundColor: '#262626',
-    borderColor: '#444',
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingVertical: 12,
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  filePickerButtonText: { color: '#FFF', fontSize: 13, fontWeight: '600' },
-  selectedFileBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#181818',
-    borderColor: '#00E5FF',
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 10,
-    marginBottom: 16,
-  },
-  fileIconBox: { marginRight: 10 },
-  fileIcon: { fontSize: 22 },
-  fileDetails: { flex: 1 },
-  fileName: { color: '#FFF', fontSize: 13, fontWeight: 'bold' },
-  fileMeta: { color: '#888', fontSize: 11, marginTop: 2 },
-  fileRemoveButton: { padding: 6 },
-  fileRemoveText: { color: '#FF5252', fontSize: 16, fontWeight: 'bold' },
-  filePlaceholderBox: {
-    padding: 10,
-    borderRadius: 8,
-    backgroundColor: '#141414',
-    borderWidth: 1,
-    borderColor: '#222',
-    marginBottom: 16,
-  },
-  filePlaceholderText: { color: '#666', fontSize: 11, fontStyle: 'italic', textAlign: 'center' },
-  uploadingButtonContent: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
-  textInput: {
-    backgroundColor: '#121212',
-    color: '#FFF',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 15,
-    borderWidth: 1,
-    borderColor: '#333',
-    marginBottom: 16,
-  },
-  otaStatusBox: {
-    backgroundColor: '#141414',
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#222',
-    marginBottom: 16,
-  },
-  otaStatusLabel: { color: '#888', fontSize: 12 },
-  otaStatusValue: { color: '#FFF', fontSize: 15, fontWeight: 'bold', marginVertical: 4 },
-  progressBarBackground: {
-    height: 8,
-    backgroundColor: '#333',
-    borderRadius: 4,
-    marginVertical: 8,
-    overflow: 'hidden',
-  },
-  progressBarFill: { height: '100%', borderRadius: 4 },
-  logText: { color: '#888', fontSize: 12, marginTop: 4, fontStyle: 'italic' },
+  /* Botões e Ações */
   primaryButton: {
     backgroundColor: '#00E5FF',
     borderRadius: 8,
@@ -772,16 +397,6 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: { opacity: 0.5 },
   primaryButtonText: { color: '#000', fontSize: 14, fontWeight: 'bold' },
-  warningBox: {
-    backgroundColor: '#2D1B00',
-    borderColor: '#FFA726',
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 12,
-    marginTop: 16,
-  },
-  warningTitle: { color: '#FFA726', fontWeight: 'bold', fontSize: 13, marginBottom: 4 },
-  warningText: { color: '#FFD54F', fontSize: 12, lineHeight: 16 },
 
   /* IA Relatório */
   reportContainer: {

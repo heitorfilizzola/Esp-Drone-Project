@@ -14,17 +14,15 @@ O aplicativo conta com navegação dividida em três módulos principais:
 - **Altitude Máxima e Mínima:** Rastreamento contínuo dos extremos de altitude atingidos durante o voo, com botão interativo para redefinir as estatísticas.
 - **Indicador de Alcance e Status:** Detecção automática de leituras válidas (*ONLINE*) ou fora do campo de medição (*ALCANCE*).
 - **Métricas de Voo:** Cálculo dinâmico e retenção de altitude mínima e máxima atingidas, com opção de reset.
-- **Atualização de Firmware Over-The-Air (OTA):**
-  - Seletor nativo de arquivo binário (`.bin`) do dispositivo.
-  - Teste de conectividade e integridade do ESP32 ("Testar Ping") via endpoint HTTP `/status`.
-  - Transmissão multipart em tempo real com barra de progresso, percentual e bytes transmitidos.
-  - Trava de segurança para impedir reinicializações acidentais em voo.
 - **IA Copilot & Telemetria Inteligente:**
   - Análise em tempo real de estabilidade e detecção de anomalias aerodinâmicas/superfície.
   - Relatório diagnóstico de estabilidade de voo com pontuação (Score %) e recomendações automáticas.
 - **Gráfico Histórico Dinâmico:** Visualização gráfica vetorial (SVG) da variação de altitude ao longo do tempo.
 - **Identificação do Dispositivo:** Exibição do `device_id` e identificação do módulo sensor ativo.
 - **Card de Conectividade:** Indicador luminoso em tempo real do estado de sincronização com o broker MQTT.
+
+> [!NOTE]
+> As atualizações de Firmware Over-The-Air (OTA) foram migradas para o **Servidor Central (`server/`)**, permitindo atualização em massa de toda a frota através do Painel Web.
 
 ---
 

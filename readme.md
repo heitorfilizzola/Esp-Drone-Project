@@ -186,19 +186,30 @@ A arquitetura do sistema divide-se em três pilares principais:
 
 ```text
 .
-├── DroneTelemetryApp/     # Aplicativo mobile React Native (Expo SDK 58) para telemetria em tempo real
-├── esp32s3-ToF90-test/    # Firmware e validação de bancada do sensor ToF 90° e MQTT (ESP32-S3)
+├── DroneTelemetryApp/     # Aplicativo mobile React Native (Expo) para telemetria e diagnóstico IA
+├── esp32s3-ToF90-test/    # Firmware do drone (ESP32-S3) com ToF-90, MQTT e cliente HTTPUpdate OTA
+├── server/                # Servidor Web e Central de Atualizações Over-The-Air (OTA) com Painel Web
 ├── readme.md              # Documentação geral da arquitetura do projeto
 └── ...
 ```
 
 ---
 
-## 🚀 Próximas Etapas
+## 🚀 Arquitetura de Atualização OTA Centralizada pelo Servidor
+
+Toda a gestão de firmware agora é controlada diretamente pelo **Servidor Central (`server/`)** via interface Web:
+
+1. **Painel Web:** O operador acessa o dashboard em `http://<IP_DO_SERVIDOR>:5000` com visualização dos drones conectados e o botão de disparo de atualização.
+2. **Disparo via MQTT:** Ao clicar em **"INICIAR ATUALIZAÇÃO DE FIRMWARE (OTA)"**, o servidor publica uma ordem no tópico `drone/cmd/ota` com a URL do binário (`http://<IP_DO_SERVIDOR>:5000/firmware.bin`).
+3. **Pull & Gravação no ESP32:** Cada ESP32 conectado recebe a instrução, baixa o binário em blocos via biblioteca nativa `HTTPUpdate`, reporta progresso em tempo real no tópico `drone/ota/status` e reinicia automaticamente na nova versão.
+
+---
+
+## 🚀 Status do Projeto
 
 - [x] Validação de bancada do sensor ToF 90° via I2C com publicação MQTT.
-- [x] Desenvolvimento e estilização do Aplicativo Mobile para consumo dos tópicos do EMQX.
-- [x] Implementação de atualização de firmware Over-The-Air (OTA) via Wi-Fi direto pelo App Mobile.
-- [x] Integração de IA Copilot de telemetria com análise em tempo real de estabilidade.
+- [x] Desenvolvimento do Aplicativo Mobile para consumo dos tópicos do EMQX e diagnóstico com IA.
+- [x] Arquitetura de Atualização de Firmware Over-The-Air (OTA) centralizada no Servidor com Painel Web.
+- [x] Disparo de OTA para múltiplos dispositivos em simultâneo via MQTT e HTTPUpdate.
 - [ ] Integração do driver do ToF 90° no firmware oficial do ESP-Drone (ESP32-S2).
 - [ ] Ajuste da malha de controle de altitude (PID/fusão com barômetro/IMU se aplicável).

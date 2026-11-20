@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ESP-Drone OTA | Painel de Atualização</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="app-layout">
+    <!-- Cabeçalho -->
+    <header class="header">
+      <div class="header-container">
+        <div class="brand">
+          <div class="brand-icon">🛸</div>
+          <div>
+            <h1 class="brand-title">ESP-Drone Fleet OTA</h1>
+            <p class="brand-subtitle">Servidor Central de Atualização Over-The-Air</p>
+          </div>
+        </div>
+        <div class="header-status">
+          <div class="status-indicator" id="mqttStatusBadge">
+            <span class="status-dot"></span>
+            <span id="mqttStatusText">Conectando MQTT...</span>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="main-content">
+      <!-- ============================================================== -->
+      <!-- PAINEL PRINCIPAL / HERO COM O BOTÃO DE UPDATE EM DESTAQUE      -->
+      <!-- ============================================================== -->
+      <section class="card hero-card">
+        <div class="hero-badge">PAINEL DE ATUALIZAÇÃO CENTRALIZADO</div>
+        <h2 class="hero-title">Atualizar Firmware da Frota ESP32</h2>
+        <p class="hero-desc">
+          Dispare a gravação de firmware sem fio (OTA) para todos os drones ESP32 conectados via broker MQTT.
+          O servidor transmite a ordem de download simultânea pela rede local.
+        </p>
+
+        <!-- AÇÃO PRINCIPAL: BOTÃO DE UPDATE -->
+        <div class="hero-action-box">
+          <button id="btnStartOta" class="btn btn-primary-cta">
+            <span class="btn-icon">🚀</span>
+            <span class="btn-text">INICIAR ATUALIZAÇÃO DE FIRMWARE (OTA)</span>
+          </button>
+          <div id="otaGlobalStatus" class="global-status-message">
+            Pronto para disparo. Nenhum update em andamento.
+          </div>
+        </div>
+
+        <div class="hero-warning">
+          <span class="warning-icon">⚠️</span>
+          <span><strong>Regra de Segurança:</strong> Os dispositivos reiniciarão imediatamente após o download e validação do binário. Não execute com drones em voo.</span>
+        </div>
+      </section>
+
+      <!-- Grid com 2 colunas: Dispositivos Conectados e Configuração de Firmware -->
+      <div class="dashboard-grid">
+        <!-- COLUNA 1: DISPOSITIVOS CONECTADOS -->
+        <section class="card">
+          <div class="card-header">
+            <h3 class="card-title">📡 Dispositivos Conectados (<span id="deviceCount">0</span>)</h3>
+            <span class="card-badge" id="autoSyncBadge">Tempo Real (SSE)</span>
+          </div>
+
+          <div id="deviceList" class="device-list">
+            <div class="empty-state">
+              <span class="empty-icon">🔍</span>
+              <p>Aguardando comunicação com drones ESP32 no broker MQTT...</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- COLUNA 2: FIRMWARE ATIVO & SERVIDOR -->
+        <section class="card">
+          <div class="card-header">
+            <h3 class="card-title">💾 Firmware Ativo no Servidor</h3>
+            <span class="badge-tag" id="fwSourceTag">PlatformIO</span>
+          </div>
+
+          <div class="fw-info-box">
+            <div class="info-row">
+              <span class="info-label">Arquivo:</span>
+              <span class="info-value" id="fwFilename">firmware.bin</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Tamanho:</span>
+              <span class="info-value" id="fwSize">-- KB</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Última Modificação:</span>
+              <span class="info-value" id="fwModified">--</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">URL para Download:</span>
+              <span class="info-value code-font" id="fwDownloadUrl">http://--:5000/firmware.bin</span>
+            </div>
+          </div>
+
+          <!-- Upload de Binário Alternativo -->
+          <div class="upload-section">
+            <label class="upload-label" for="firmwareFileInput">
+              📁 Carregar Novo Arquivo .bin
+            </label>
+            <input type="file" id="firmwareFileInput" accept=".bin" style="display: none;" />
+            <button id="btnResetDefaultFw" class="btn btn-secondary btn-sm" title="Restaura compilação padrão do PlatformIO">
+              Restaurar Compilação PlatformIO
+            </button>
+          </div>
+
+          <!-- Ajuste de IP do Servidor e Broker MQTT -->
+          <div class="server-config-section">
+            <label class="section-sublabel">Endereço IP do Servidor (para download do .bin pelos ESP32):</label>
+            <div class="input-inline">
+              <input type="text" id="serverIpInput" class="text-input" placeholder="ex: 172.20.10.2 ou 192.168.1.6" />
+              <button id="btnSaveIp" class="btn btn-outline btn-sm">Salvar IP</button>
+            </div>
+
+            <label class="section-sublabel" style="margin-top: 10px;">Endereço do Broker MQTT (EMQX):</label>
+            <div class="input-inline">
+              <input type="text" id="mqttBrokerInput" class="text-input" placeholder="ex: mqtt://172.20.10.2:1883" />
+              <button id="btnSaveBroker" class="btn btn-outline btn-sm">Reconectar Broker</button>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- CONSOLE DE LOGS EM TEMPO REAL -->
+      <section class="card logs-card">
+        <div class="card-header">
+          <h3 class="card-title">📝 Console de Logs OTA & MQTT</h3>
+          <button id="btnClearLogs" class="btn btn-ghost btn-sm">Limpar Logs</button>
+        </div>
+        <div id="logsConsole" class="terminal-box">
+          <div class="terminal-line system">[Sistema] Painel inicializado. Aguardando eventos...</div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <p>ESP-Drone Telemetry & Server-Driven OTA System • 2026</p>
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
