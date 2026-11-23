@@ -20,47 +20,49 @@ A arquitetura do sistema divide-se em três pilares principais:
 ## 🏗️ Arquitetura do Sistema
 
 ```
-+-------------------------------------------------------------------------------+
-|                                CAMADA DE HARDWARE                             |
-|                                                                               |
-|  +--------------------+      I2C      +---------------------------------+     |
-|  |   Mini TOF 90°     | ------------> |       ESP32-S2 (ESP-Drone)      |     |
-|  |  (Sensor Altura)   |               |                                 |     |
-|  +--------------------+               | - Leitura do TOF (Altitude)     |     |
-|                                       | - Estabilização / Firmware      |     |
-|                                       | - Cliente MQTT & Protocolo CRTP |     |
-|                                       +---------------------------------+     |
-+---------------------------------------/----------------\----------------------+
-                                        /                  \
-              Comandos / Telemetria   /                    \ MQTT Publish
-                   (CRTP via Wi-Fi/UDP)                      \ (drone/sensor/tof90)
-                                     /                      \
-+-----------------------------------|------------------------|------------------+
-|                                  v                         v                  |
-|                        +-------------------+     +-------------------+        |
-|                        | Software de       |     |       EMQX        |        |
-|                        | Controle de Voo   |     |   (MQTT Broker)   |        |
-|                        | (Crazyflie Client |     |                   |        |
-|                        | / QGroundControl) |     +---------|---------+        |
-|                        +-------------------+               |                  |
-|                                                            |                  |
-|                                  ESTAÇÃO PC                |                  |
-+------------------------------------------------------------|------------------+
-                                                             |
-                                               Wi-Fi / MQTT  | Sub: drone/#
-                                                             v
-+-------------------------------------------------------------------------------+
-|                              CAMADA DE APRESENTAÇÃO                           |
-|                                                                               |
-|                   +---------------------------------------+                   |
-|                   |           Aplicativo Mobile           |                   |
-|                   |                                       |                   |
-|                   | - Dashboard de Telemetria (ToF 90°)   |                   |
-|                   | - Altitude Máxima e Mínima em Tempo   |                   |
-|                   | - Gerenciador de Gravação OTA (Wi-Fi) |                   |
-|                   | - IA Copilot de Estabilidade de Voo   |                   |
-|                   +---------------------------------------+                   |
-+-------------------------------------------------------------------------------+
++---------------------------------------------------------------------------------------------------+
+|                                        CAMADA DE HARDWARE (DRONE)                                 |
+|                                                                                                   |
+|  +--------------------+        I2C        +----------------------------------------------------+  |
+|  |   Mini ToF 90°     | ----------------> |                ESP32-S3 / ESP32-S2                 |  |
+|  |  (M5Stack U196)    |  SDA:04 / SCL:05  | - Aquisição de Altitude em Tempo Real (I2C)        |  |
+|  +--------------------+                   | - Feedback Visual via LED WS2812B (GPIO 48)        |  |
+|                                           | - Cliente MQTT PubSubClient & HTTPUpdate OTA       |  |
+|                                           +----------------------------------------------------+  |
++-------------------------------------------/--------------------|--------------------\-------------+
+                                           /                     |                     \
+                   Telemetria / CRTP via  /                      |                      \  Publicação MQTT:
+                   Wi-Fi / UDP (Porta 23) /                      |                       \  drone/sensor/tof90
+                                         /        Sub: drone/cmd/ota                      \  drone/ota/status
+                                        v         Pub: drone/ota/status                    v
++------------------------------------+ |                         |        +---------------------------------+
+|          ESTAÇÃO PC DE SOLO        | |                         v        |          BROKER EMQX            |
+|                                    | |     +-----------------------+    |  - Listener TCP: 1883           |
+| - Software de Pilotagem            | |     |   SERVIDOR CENTRAL    |    |  - Listener WebSocket: 8083     |
+|   (Crazyflie Client / QGC)         | |     |   (Painel Web / OTA)  |    |  - Autenticação e ACL via MySQL |
+| - Calibração de PID e Atitude      | |     |                       |    +----------------|----------------+
++------------------------------------+ |     | - Node.js + Express   |                     |
+                                       |     | - Dashboard Web :5000 |                     | Rule Engine (INSERT)
+                                       |     | - Disparo OTA em Lote |                     v
+                                       |     | - Streaming /firmware |    +---------------------------------+
+                                       |     +-----------------------+    |        BANCO MARIADB            |
+                                       |                                  |  - iot_db.sensor_tof            |
+                                       |                                  +---------------------------------+
+                                       |                                                   |
+                                       |                                     MQTT sobre WS | Sub: drone/#
+                                       |                                      (Porta 8083) v
++---------------------------------------------------------------------------------------------------+
+|                                 CAMADA DE APRESENTAÇÃO & EDGE AI                                  |
+|                                                                                                   |
+|                                +--------------------------------------+                           |
+|                                |     DroneTelemetryApp (Expo SDK 58)  |                           |
+|                                |                                      |                           |
+|                                | - Aba Telemetria (ToF 90°, Gráficos) |                           |
+|                                | - Extremos de Voo (Altitude Mín/Máx) |                           |
+|                                | - Motor Edge AI de Estabilidade      |                           |
+|                                | - Relatório de Análise de Pouso/Voo  |                           |
+|                                +--------------------------------------+                           |
++---------------------------------------------------------------------------------------------------+
 ```
 
 ---
@@ -98,29 +100,34 @@ A arquitetura do sistema divide-se em três pilares principais:
 ---
 
 ## ⚡ Esquema Elétrico do Circuito
+
+### Conexão do Sensor Mini ToF 90° ao Microcontrolador:
 ```
 
-                       +-----------------------------------+
-                       |        ESP32-S2 (ESP-Drone)       |
-                       |                                   |
-                       |  [3V3]  [GND]   [GPIO8]  [GPIO9]  |
-                       +---|-------|--------|--------|-----+
-                           |       |        |        |
-                           |       |       SDA      SCL
-                           |       |        |        |
- +-------------------+     |       |        |        |
- |   Mini TOF 90°    |     |       |        |        |
- |                   |     |       |        |        |
- |  [VCC]  [GND]     | <---+       |        |        |
- |    |      |       |             |        |        |
- |    +------+-------|-------------+        |        |
- |                   |                      |        |
- |  [SDA]------------|----------------------+        |
- |  [SCL]------------|-------------------------------+
- |                   |
- +-------------------+
+                        +-----------------------------------+
+                        |        ESP32-S3 DevKitC / S2      |
+                        |                                   |
+                        |  [3V3]  [GND]   [IO04]   [IO05]   |  (No ESP32-S2: GPIO8 / GPIO9)
+                        +---|-------|--------|--------|-----+
+                            |       |        |        |
+                            |       |       SDA      SCL
+                            |       |        |        |
+  +-------------------+     |       |        |        |
+  |   Mini ToF 90°    |     |       |        |        |
+  |   (VL53L0X)       |     |       |        |        |
+  |  [VCC]  [GND]     | <---+       |        |        |
+  |    |      |       |             |        |        |
+  |    +------+-------|-------------+        |        |
+  |                   |                      |        |
+  |  [SDA]------------|----------------------+        |
+  |  [SCL]------------|-------------------------------+
+  |                   |
+  +-------------------+
 ```
 
+* **LED Onboard WS2812B (ESP32-S3):** GPIO 48 fornece feedback visual do estado de operação (Azul: conectando ou gravando OTA; Verde: operação nominal / MQTT conectado; Vermelho: erro).
+
+---
 
 ## 🔍 Detalhamento das Camadas
 
@@ -133,13 +140,13 @@ A arquitetura do sistema divide-se em três pilares principais:
 * **Broker EMQX:** Servidor de mensagens MQTT escalável e de baixa latência responsável por receber os pacotes de telemetria publicados pelo drone (`drone/sensor/tof90`) e encaminhá-los de maneira desacoplada aos clientes inscritos.
 
 ### 3. Camada de Apresentação (Aplicativo Mobile)
-* **Aplicativo Mobile:** Desenvolvido para fornecer uma experiência visual simplificada e objetiva ao operador em solo.
-  * Conecta-se ao broker EMQX e assina o tópico de telemetria global (`drone/telemetry/#`).
-  * Exibe em tempo real a altitude atual em centímetros/metros e extremos de voo (máx/mín).
-  * Apresenta gráficos de linha com a evolução temporal da altitude.
-  * **Atualização Over-The-Air (OTA):** Envio direto de binários `.bin` compilados para o microcontrolador via Wi-Fi, com monitoramento de progresso e validação de status.
-  * **IA Copilot & Telemetria:** Algoritmo embarcado de detecção de anomalias aerodinâmicas e relatório diagnóstico de estabilidade de voo.
-  * Sinaliza o estado da conexão MQTT e eventuais alertas de perda de telemetria.
+* **Aplicativo Mobile:** Desenvolvido em React Native e Expo (SDK 58) para fornecer uma experiência visual simplificada e diagnósticos inteligentes ao operador em solo.
+  * Conecta-se diretamente ao broker EMQX via WebSockets (porta `8083`) e assina o tópico wildcard (`drone/#`).
+  * Exibe em tempo real a altitude atual em centímetros e milímetros, além de extremos de voo (máx/mín) com reset interativo.
+  * Apresenta gráficos vetoriais dinâmicos (SVG) com o histórico de altitude.
+  * **IA Copilot & Telemetria Inteligente:** Algoritmo de Edge AI embarcado para detecção de anomalias aerodinâmicas e turbulência de solo, gerando relatórios de estabilidade de voo (Score %) e recomendações de sintonia PID.
+  * Sinaliza o estado da conexão MQTT e eventuais alertas de perda de dados.
+  * *(Nota: O gerenciamento de atualizações de firmware OTA foi migrado e centralizado no [Servidor Central](server/README.md) com Painel Web).*
 
 ---
 
@@ -148,10 +155,12 @@ A arquitetura do sistema divide-se em três pilares principais:
 ### Tópicos
 | Tópico | Direção | Protocolo | Descrição |
 | :--- | :--- | :--- | :--- |
-| `drone/sensor/tof90` | Drone ➔ EMQX | MQTT (TCP 1883) | Publicação periódica das leituras do sensor ToF-90° |
+| `drone/sensor/tof90` | ESP32 ➔ EMQX / DB | MQTT (TCP 1883) | Publicação periódica das leituras do sensor ToF-90° (mm, cm, timestamp) |
 | `drone/#` | EMQX ➔ App Mobile | MQTT sobre WebSocket (8083) | Tópico curinga (wildcard) para subscrição de toda a telemetria do drone |
+| `drone/cmd/ota` | Servidor ➔ ESP32 | MQTT (TCP 1883) | Ordem de atualização OTA com URL do binário `firmware.bin` |
+| `drone/ota/status` | ESP32 ➔ Servidor / Clientes | MQTT (TCP 1883) | Reporte de progresso percentual (0-100%) e status de flashing da Flash |
 
-### Exemplo de Payload (JSON)
+### Exemplo de Payload de Telemetria (JSON)
 ```json
 {
   "device_id": "esp32s3_tof90",
@@ -159,7 +168,9 @@ A arquitetura do sistema divide-se em três pilares principais:
   "distance_mm": 275,
   "distance_cm": 27.5,
   "valid": true,
-  "timestamp": 458920
+  "timestamp": 458920,
+  "ip": "192.168.1.4",
+  "version": "1.2.0"
 }
 ```
 

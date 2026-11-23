@@ -154,8 +154,7 @@ npx expo export
 ## 📂 Estrutura de Serviços
 
 * [`src/services/mqttService.ts`](src/services/mqttService.ts): Inicialização do cliente MQTT via WebSocket, reconexão resiliente, tratamento de eventos e sanitização automática de tópicos (`drone/#`).
-* [`src/services/aiTelemetryService.ts`](src/services/aiTelemetryService.ts): Motor Edge AI para detecção em tempo real de variações súbitas de altitude, desvio padrão e geração do relatório de diagnóstico de voo com recomendações de estabilidade e calibração PID.
-* [`src/services/otaService.ts`](src/services/otaService.ts): Gerenciador de upload de firmware compilado (`.bin`) via requisição HTTP multipart com monitoramento de progresso em tempo real.
+* [`src/services/aiTelemetryService.ts`](src/services/aiTelemetryService.ts): Motor Edge AI para detecção em tempo real de variações súbitas de altitude, cálculo de desvio padrão e geração de relatórios de diagnóstico de estabilidade com recomendações automáticas de calibração PID.
 
 ---
 
@@ -163,17 +162,14 @@ npx expo export
 
 * **Framework:** [Expo](https://expo.dev/) (SDK 58) / [React Native](https://reactnative.dev/)
 * **Linguagem:** TypeScript
-* **Comunicação MQTT:** [`mqtt`](https://www.npmjs.com/package/mqtt) (WebSocket client)
-* **Envio OTA & Arquivos:** [`expo-file-system`](https://docs.expo.dev/versions/latest/sdk/filesystem/) & [`expo-document-picker`](https://docs.expo.dev/versions/latest/sdk/document-picker/)
+* **Comunicação MQTT:** [`mqtt`](https://www.npmjs.com/package/mqtt) (WebSocket client sobre porta `8083`)
 * **Gráficos e Vetores:** [`react-native-chart-kit`](https://www.npmjs.com/package/react-native-chart-kit) & [`react-native-svg`](https://www.npmjs.com/package/react-native-svg)
 
 ---
 
-## 🔄 Fluxo de Atualização OTA (Over-The-Air)
+## 🚀 Atualizações de Firmware Over-The-Air (OTA)
 
-1. Conecte o smartphone à mesma rede Wi-Fi que o ESP32.
-2. Na aba **OTA Firmware**, insira o endereço IP local do ESP32.
-3. Pressione **Testar Ping** para validar que o ESP32 está respondendo e verificar o Heap livre.
-4. Clique em **Selecionar Arquivo de Firmware (.bin)** e aponte para o arquivo compilado pelo PlatformIO.
-5. Pressione **🚀 Iniciar Gravação OTA no ESP32** e acompanhe a barra de progresso e porcentagem em tempo real.
-6. Ao término, o ESP32 reinicia automaticamente com o novo firmware gravado.
+As rotinas de atualização de firmware foram migradas do aplicativo mobile para o **[Servidor Central (`server/`)](../server/README.md)**:
+1. **Painel Web Centralizado:** O operador dispara atualizações diretamente pelo navegador em `http://<IP_DO_SERVIDOR>:5000`.
+2. **Atualização em Frota:** Permite atualização simultânea em lote para múltiplos drones via mensagens MQTT no tópico `drone/cmd/ota`.
+3. **Foco do App Mobile:** Com isso, o DroneTelemetryApp mantém foco dedicado na visualização fluida de telemetria em voo e análises preditivas do Copilot IA.

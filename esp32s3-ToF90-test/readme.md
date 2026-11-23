@@ -9,25 +9,28 @@ O sistema realiza a aquisição de dados do sensor Time-of-Flight (ToF), formata
 ## 1. Arquitetura do Sistema
 
 ```
-+------------------+         I2C          +-------------------+
-|  Sensor ToF-90°  | <------------------> |     ESP32-S3      |
-|  (VL53L0X / I2C) |  SDA: IO04 / SCL: IO05 |  (Cliente MQTT)   |
-+------------------+                      +-------------------+
-                                                    |
-                                      MQTT (1883)   | WiFi 802.11 b/g/n
-                                                    v
-                                          +-------------------+
-                                          |  EMQX Enterprise  |
-                                          |   Broker v5.8.0   |
-                                          +-------------------+
-                                            |               |
-                         Auth / ACL (MySQL) |               | Rule Engine (INSERT)
-                                            v               v
-                                          +-------------------+
-                                          |      MariaDB      |
-                                          |  (Database Server)|
-                                          +-------------------+
-
++------------------+         I2C          +------------------------------------+
+|  Sensor ToF-90°  | <------------------> |              ESP32-S3              |
+|  (VL53L0X / I2C) |  SDA: IO04 / SCL: IO05 | - Nó de Sensoriamento de Altitude  |
++------------------+                      | - Cliente MQTT PubSubClient        |
+                                          | - Atualização OTA via HTTPUpdate   |
+                                          +-----------------+------------------+
+                                                            |
+                                        MQTT (1883)         | Wi-Fi (2.4 GHz)
+                       Sub: drone/cmd/ota  /  Pub: drone/#  | Pub: drone/ota/status
+                                          v                 v
+                               +-------------------------------------+
+                               |           EMQX Enterprise           |
+                               |            Broker v5.8.0            |
+                               +------------------+------------------+
+                                        |                   |
+                     Auth / ACL (MySQL) |                   | Rule Engine (INSERT)
+                                        v                   v
+                               +-----------------+  +-----------------+
+                               |     MariaDB     |  | Servidor Central|
+                               | (Banco de Dados)|  |  (Painel Web OTA|
+                               +-----------------+  |   Porta :5000)  |
+                                                    +-----------------+
 ```
 
 ---
@@ -172,21 +175,28 @@ O LED WS2812B integrado no ESP32-S3 fornece feedback visual sobre o estado da ap
 
 ## 6. Atualização de Firmware Over-The-Air (OTA)
 
-O firmware implementa um servidor HTTP local (porta 80) permitindo gravação sem fio via aplicativo mobile ou chamada HTTP multipart:
+O microcontrolador suporta atualização de firmware sem fio (Over-The-Air) operando em dois modos complementares:
 
-### Endpoints Disponíveis:
+### 6.1. Orquestração Centralizada via Servidor Web e MQTT (Método Principal)
+1. **Inscrição de Comandos:** O ESP32-S3 fica inscrito no tópico `drone/cmd/ota`.
+2. **Disparo pelo Servidor:** Ao clicar em **"INICIAR ATUALIZAÇÃO DE FIRMWARE (OTA)"** no Painel Web (`http://<IP_SERVIDOR>:5000`), o servidor despacha a URL do binário (`http://<IP_SERVIDOR>:5000/firmware.bin`).
+3. **Pull e Gravação Nativa:** O ESP32 suspende temporariamente as leituras do sensor ToF, conecta via HTTP e grava o novo binário em blocos usando a biblioteca nativa `HTTPUpdate`.
+4. **Feedback de Progresso:** Durante o download, o ESP32 publica seu progresso percentual (0 a 100%) em tempo real no tópico `drone/ota/status` e sinaliza através do LED WS2812B (Azul).
+5. **Reboot Automático:** Concluída a validação da partição Flash (`ota_0` / `ota_1`), o dispositivo reinicia automaticamente já na nova versão com o LED em Verde.
+
+### 6.2. Servidor HTTP Local para Diagnóstico e Fallback (Porta 80)
+Para testes pontuais de bancada via rede local:
 * `GET /status`: Retorna JSON com status de conectividade, memória Heap disponível, tempo de atividade e prontidão OTA.
-* `POST /update`: Endpoint multipart/form-data (campo `update`) para transmissão do binário `.bin`. Durante o upload, o ESP32 suspende temporariamente o sensor ToF e as publicações MQTT para estabilidade da gravação na Flash, reiniciando automaticamente após a validação.
+* `POST /update`: Endpoint multipart/form-data (campo `update`) para transmissão direta do arquivo binário `.bin`.
 
-### Tabela de Partições (OTA):
+### 6.3. Tabela de Partições e Geração do Binário
 Configurada no `platformio.ini` via `board_build.partitions = default_8MB.csv`, alocando slots duplos de 3.264 KB (`ota_0` e `ota_1`).
 
-### Como gerar o binário para OTA:
+Para compilar o binário para distribuição OTA:
 ```bash
 pio run
 ```
-O arquivo `.bin` gerado estará localizado em:
-`.pio/build/esp32-s3-devkitc-1/firmware.bin`
+O arquivo gerado estará em `.pio/build/esp32-s3-devkitc-1/firmware.bin`, que é automaticamente lido e servido pelo Painel Web.
 
 ---
 
