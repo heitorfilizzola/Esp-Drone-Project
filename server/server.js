@@ -7,9 +7,11 @@ const cors = require('cors');
 const multer = require('multer');
 const mqtt = require('mqtt');
 require('dotenv').config();
+const { FleetAIMaster } = require('./aiEngine');
 
 const app = express();
 const server = http.createServer(app);
+const fleetAI = new FleetAIMaster();
 
 const PORT = process.env.PORT || 5000;
 let MQTT_BROKER_URL = process.env.MQTT_BROKER_URL || 'mqtt://172.20.10.2:1883';
@@ -196,6 +198,12 @@ function initMQTT() {
           otaMessage: 'Pronto',
         };
 
+        let aiInfo = existing.ai || null;
+        if (topic === 'drone/sensor/tof90') {
+          aiInfo = fleetAI.processTelemetry(data);
+          broadcastSSE({ type: 'ai_update', ai: aiInfo });
+        }
+
         const updatedDevice = {
           ...existing,
           id,
@@ -204,6 +212,7 @@ function initMQTT() {
           sensor: data.sensor || existing.sensor || 'ToF-90',
           distance_mm: data.distance_mm !== undefined ? data.distance_mm : existing.distance_mm,
           valid: data.valid !== undefined ? data.valid : existing.valid,
+          ai: aiInfo,
           lastSeen: Date.now(),
           status: 'online',
         };
@@ -277,8 +286,28 @@ app.get('/api/status', (req, res) => {
     mqttConnected,
     mqttBroker: MQTT_BROKER_URL,
     devices: Array.from(devices.values()),
+    aiMetrics: fleetAI.getAllMetrics(),
     firmware: getActiveFirmwareInfo(),
     logs: systemLogs.slice(-50),
+  });
+});
+
+// Métricas de Inteligência Artificial da Frota (Isolation Forest + K-Means)
+app.get('/api/ai/metrics', (req, res) => {
+  res.json({
+    success: true,
+    metrics: fleetAI.getAllMetrics()
+  });
+});
+
+// Geração de Relatório de Auditoria Preditiva por IA
+app.post('/api/ai/audit', (req, res) => {
+  const deviceId = req.body.deviceId || 'esp32s3_tof90';
+  const devAi = fleetAI.getDeviceAI(deviceId);
+  const report = devAi.generateAuditReport();
+  res.json({
+    success: true,
+    report
   });
 });
 
@@ -398,6 +427,7 @@ app.get('/api/events', (req, res) => {
     mqttConnected,
     mqttBroker: MQTT_BROKER_URL,
     devices: Array.from(devices.values()),
+    aiMetrics: fleetAI.getAllMetrics(),
     firmware: getActiveFirmwareInfo(),
     logs: systemLogs.slice(-30),
   };

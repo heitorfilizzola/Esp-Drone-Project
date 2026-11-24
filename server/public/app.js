@@ -276,12 +276,21 @@ function setupSSE() {
           }
           renderDevices();
 
+          if (data.aiMetrics && data.aiMetrics.length > 0) {
+            updateAiUI(data.aiMetrics[0]);
+            renderAnomaliesList(data.aiMetrics[0].recentAnomalies);
+          }
+
           if (data.logs) {
             logsConsole.innerHTML = '';
             for (const l of data.logs) {
               appendLog(l.source, l.message, l.type);
             }
           }
+          break;
+
+        case 'ai_update':
+          updateAiUI(data.ai);
           break;
 
         case 'mqtt_status':
@@ -333,6 +342,160 @@ function updateMqttStatus(connected) {
     mqttStatusBadge.className = 'status-indicator offline';
     mqttStatusText.textContent = 'Broker Desconectado';
   }
+}
+
+// ==========================================================
+// INTELIGÊNCIA ARTIFICIAL REAL (ISOLATION FOREST & ML UI)
+// ==========================================================
+const aiHealthScore = document.getElementById('aiHealthScore');
+const aiHealthFill = document.getElementById('aiHealthFill');
+const aiAnomalyScore = document.getElementById('aiAnomalyScore');
+const aiAnomalyStatus = document.getElementById('aiAnomalyStatus');
+const aiRegimeName = document.getElementById('aiRegimeName');
+const aiModelDetails = document.getElementById('aiModelDetails');
+const aiDynamicVelocity = document.getElementById('aiDynamicVelocity');
+const aiDynamicJitter = document.getElementById('aiDynamicJitter');
+const aiAnomaliesList = document.getElementById('aiAnomaliesList');
+const btnRunAiAudit = document.getElementById('btnRunAiAudit');
+const aiAuditModal = document.getElementById('aiAuditModal');
+const btnCloseAiModal = document.getElementById('btnCloseAiModal');
+const aiAuditContent = document.getElementById('aiAuditContent');
+
+function updateAiUI(ai) {
+  if (!ai) return;
+
+  if (aiHealthScore && aiHealthFill) {
+    aiHealthScore.textContent = `${ai.healthScore}%`;
+    aiHealthFill.style.width = `${ai.healthScore}%`;
+    if (ai.healthScore >= 80) {
+      aiHealthFill.style.background = 'linear-gradient(90deg, #10B981, #00E5FF)';
+    } else if (ai.healthScore >= 60) {
+      aiHealthFill.style.background = 'linear-gradient(90deg, #F59E0B, #EF4444)';
+    } else {
+      aiHealthFill.style.background = '#EF4444';
+    }
+  }
+
+  if (aiAnomalyScore && aiAnomalyStatus) {
+    aiAnomalyScore.textContent = (ai.anomalyScore !== undefined) ? ai.anomalyScore.toFixed(3) : '0.000';
+    if (ai.isAnomaly) {
+      aiAnomalyStatus.textContent = '⚠️ Anomalia Isolada pelo Modelo!';
+      aiAnomalyStatus.style.color = '#F87171';
+    } else {
+      aiAnomalyStatus.textContent = 'Nominal (Sem anomalias)';
+      aiAnomalyStatus.style.color = '#94A3B8';
+    }
+  }
+
+  if (aiRegimeName) {
+    aiRegimeName.textContent = ai.regime || 'Nominal';
+    aiRegimeName.style.color = ai.regimeColor || '#00E5FF';
+  }
+
+  if (aiModelDetails) {
+    aiModelDetails.textContent = `Amostras: ${ai.totalSamples || 0} | Anomalias: ${ai.anomalyRate || '0%'}`;
+  }
+
+  if (aiDynamicVelocity) {
+    aiDynamicVelocity.textContent = `${ai.velocityMmS || 0} mm/s`;
+  }
+  if (aiDynamicJitter) {
+    aiDynamicJitter.textContent = `Jitter: ~${ai.jitterMs || 200} ms`;
+  }
+}
+
+function renderAnomaliesList(anomalies) {
+  if (!aiAnomaliesList) return;
+  if (!anomalies || anomalies.length === 0) {
+    aiAnomaliesList.innerHTML = '<div class="ai-empty-notice">Nenhuma anomalia crítica isolada no buffer de telemetria atual.</div>';
+    return;
+  }
+
+  aiAnomaliesList.innerHTML = '';
+  for (const item of anomalies) {
+    const el = document.createElement('div');
+    el.className = 'ai-anomaly-item';
+    el.innerHTML = `
+      <div>
+        <span class="ai-anomaly-time">[${item.timestamp}]</span>
+        <span class="ai-anomaly-reason">${item.reason}</span>
+      </div>
+      <span class="ai-anomaly-score">Score: ${item.score}</span>
+    `;
+    aiAnomaliesList.appendChild(el);
+  }
+}
+
+// Listener para Auditoria de IA
+if (btnRunAiAudit) {
+  btnRunAiAudit.addEventListener('click', async () => {
+    aiAuditModal.style.display = 'flex';
+    aiAuditContent.innerHTML = '<p>Calculando inferência nos modelos Isolation Forest e K-Means...</p>';
+
+    try {
+      const res = await fetch('/api/ai/audit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deviceId: 'esp32s3_tof90' })
+      });
+      const data = await res.json();
+      if (!data.success || !data.report) {
+        aiAuditContent.innerHTML = '<p class="error">Falha ao gerar relatório.</p>';
+        return;
+      }
+
+      const r = data.report;
+      const verdictClass = r.healthScore >= 80 ? 'success' : r.healthScore >= 60 ? 'warning' : 'danger';
+      const verdictIcon = r.healthScore >= 80 ? '✅' : r.healthScore >= 60 ? '⚠️' : '🚨';
+
+      aiAuditContent.innerHTML = `
+        <div class="audit-verdict-banner ${verdictClass}">
+          <span>${verdictIcon}</span>
+          <div>
+            <div>${r.verdict}</div>
+            <div style="font-size: 12px; font-weight: normal; opacity: 0.9;">Score de Saúde Geral: ${r.healthScore}% | Taxa de Anomalias: ${r.anomalyRate}</div>
+          </div>
+        </div>
+
+        <div class="audit-grid">
+          <div class="audit-stat-card">
+            <div class="audit-stat-label">REGIME DE VOO INFERIDO</div>
+            <div class="audit-stat-val" style="color: var(--accent-cyan);">${r.currentRegime}</div>
+          </div>
+          <div class="audit-stat-card">
+            <div class="audit-stat-label">SCORE ATUAL ISOLATION FOREST</div>
+            <div class="audit-stat-val">${r.anomalyScore}</div>
+          </div>
+          <div class="audit-stat-card">
+            <div class="audit-stat-label">ALTITUDE MÉDIA / VELOCIDADE</div>
+            <div class="audit-stat-val">${r.telemetryStats.avgAltitudeMm} mm / ${r.telemetryStats.avgVerticalVelocityMmS} mm/s</div>
+          </div>
+          <div class="audit-stat-card">
+            <div class="audit-stat-label">ÁRVORES NA FLORESTA (iTrees)</div>
+            <div class="audit-stat-val">${r.modelDiagnostics.trees} árvores de isolamento</div>
+          </div>
+        </div>
+
+        <div class="audit-recs-title">💡 Parecer Técnico e Recomendações:</div>
+        <ul class="audit-recs-list">
+          ${r.recommendations.map(rec => `<li>${rec}</li>`).join('')}
+        </ul>
+      `;
+    } catch (err) {
+      aiAuditContent.innerHTML = `<p class="error">Erro ao comunicar com a API de IA: ${err.message}</p>`;
+    }
+  });
+}
+
+if (btnCloseAiModal) {
+  btnCloseAiModal.addEventListener('click', () => {
+    aiAuditModal.style.display = 'none';
+  });
+}
+if (aiAuditModal) {
+  aiAuditModal.addEventListener('click', (e) => {
+    if (e.target === aiAuditModal) aiAuditModal.style.display = 'none';
+  });
 }
 
 // Inicialização

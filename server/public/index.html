@@ -59,6 +59,75 @@
         </div>
       </section>
 
+      <!-- ============================================================== -->
+      <!-- PAINEL DE INTELIGÊNCIA ARTIFICIAL REAL (ISOLATION FOREST & ML) -->
+      <!-- ============================================================== -->
+      <section class="card ai-card">
+        <div class="card-header">
+          <div class="header-left">
+            <span class="ai-chip">MACHINE LEARNING REAL</span>
+            <h3 class="card-title">🧠 Monitoramento e Detecção de Anomalias (Isolation Forest & K-Means)</h3>
+          </div>
+          <button id="btnRunAiAudit" class="btn btn-outline btn-sm">
+            <span>⚡ Gerar Auditoria Preditiva</span>
+          </button>
+        </div>
+
+        <p class="ai-subtitle">
+          Algoritmo não-supervisionado de Machine Learning (Liu et al.) calculando profundidades médias de isolamento e agrupamento de regimes operacionais em tempo real sobre a telemetria do ToF-90.
+        </p>
+
+        <!-- Métricas Principais da IA -->
+        <div class="ai-metrics-grid">
+          <div class="ai-metric-box">
+            <span class="ai-metric-label">ÍNDICE DE SAÚDE DA AERONAVE</span>
+            <div class="ai-metric-val" id="aiHealthScore">-- %</div>
+            <div class="ai-progress-bar">
+              <div id="aiHealthFill" class="ai-progress-fill" style="width: 0%;"></div>
+            </div>
+          </div>
+
+          <div class="ai-metric-box">
+            <span class="ai-metric-label">SCORE DE ANOMALIA ML</span>
+            <div class="ai-metric-val" id="aiAnomalyScore">0.000</div>
+            <span class="ai-subtext" id="aiAnomalyStatus">Nominal (Sem anomalias)</span>
+          </div>
+
+          <div class="ai-metric-box">
+            <span class="ai-metric-label">REGIME DE VOO INFERIDO</span>
+            <div class="ai-metric-val highlight" id="aiRegimeName">Aguardando dados...</div>
+            <span class="ai-subtext" id="aiModelDetails">Isolation Forest (25 iTrees)</span>
+          </div>
+
+          <div class="ai-metric-box">
+            <span class="ai-metric-label">DINÂMICA VERTICAL ESTIMADA</span>
+            <div class="ai-metric-val code-font" id="aiDynamicVelocity">0 mm/s</div>
+            <span class="ai-subtext" id="aiDynamicJitter">Jitter de Rede: -- ms</span>
+          </div>
+        </div>
+
+        <!-- Alertas Recentes da IA -->
+        <div class="ai-anomalies-container">
+          <div class="ai-section-title">Anomalias Multidimensionais Isoladas pelo Modelo:</div>
+          <div id="aiAnomaliesList" class="ai-anomalies-list">
+            <div class="ai-empty-notice">Nenhuma anomalia crítica isolada no buffer de telemetria atual.</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Modal de Auditoria de IA -->
+      <div id="aiAuditModal" class="modal-backdrop" style="display: none;">
+        <div class="modal-card">
+          <div class="modal-header">
+            <h3>🤖 Relatório de Auditoria Preditiva de IA</h3>
+            <button id="btnCloseAiModal" class="btn-close">&times;</button>
+          </div>
+          <div id="aiAuditContent" class="modal-body">
+            <p>Processando diagnóstico estatístico do modelo...</p>
+          </div>
+        </div>
+      </div>
+
       <!-- Grid com 2 colunas: Dispositivos Conectados e Configuração de Firmware -->
       <div class="dashboard-grid">
         <!-- COLUNA 1: DISPOSITIVOS CONECTADOS -->
