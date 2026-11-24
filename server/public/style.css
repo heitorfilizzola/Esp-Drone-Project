@@ -615,6 +615,67 @@ body {
   margin-bottom: 24px;
 }
 
+.ai-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.ai-device-select {
+  background-color: var(--bg-subtle);
+  border: 1px solid var(--border);
+  color: #FFF;
+  border-radius: var(--radius-sm);
+  padding: 6px 12px;
+  font-size: 13px;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.ai-device-select:focus {
+  border-color: var(--accent-cyan);
+}
+
+.ai-device-select option {
+  background-color: var(--bg-card);
+  color: #FFF;
+}
+
+.ai-fleet-banner {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  background: rgba(11, 14, 20, 0.6);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 14px 18px;
+  margin-bottom: 20px;
+}
+
+.ai-fleet-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ai-fleet-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: 0.5px;
+  font-family: var(--font-mono);
+}
+
+.ai-fleet-val {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--accent-cyan);
+  font-family: var(--font-mono);
+}
+
 .ai-chip {
   display: inline-block;
   background: rgba(0, 229, 255, 0.15);

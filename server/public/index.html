@@ -68,16 +68,41 @@
             <span class="ai-chip">MACHINE LEARNING REAL</span>
             <h3 class="card-title">🧠 Monitoramento e Detecção de Anomalias (Isolation Forest & K-Means)</h3>
           </div>
-          <button id="btnRunAiAudit" class="btn btn-outline btn-sm">
-            <span>⚡ Gerar Auditoria Preditiva</span>
-          </button>
+          <div class="ai-header-actions">
+            <select id="aiDeviceSelector" class="ai-device-select">
+              <option value="fleet_all">🌐 Visão da Frota Inteira</option>
+            </select>
+            <button id="btnRunAiAudit" class="btn btn-outline btn-sm">
+              <span>⚡ Gerar Auditoria Preditiva</span>
+            </button>
+          </div>
         </div>
 
         <p class="ai-subtitle">
           Algoritmo não-supervisionado de Machine Learning (Liu et al.) calculando profundidades médias de isolamento e agrupamento de regimes operacionais em tempo real sobre a telemetria do ToF-90.
         </p>
 
-        <!-- Métricas Principais da IA -->
+        <!-- Resumo da Frota -->
+        <div id="aiFleetBanner" class="ai-fleet-banner">
+          <div class="ai-fleet-stat">
+            <span class="ai-fleet-label">DRONES ATIVOS</span>
+            <span class="ai-fleet-val" id="aiFleetDeviceCount">0</span>
+          </div>
+          <div class="ai-fleet-stat">
+            <span class="ai-fleet-label">SAÚDE MÉDIA DA FROTA</span>
+            <span class="ai-fleet-val" id="aiFleetAvgHealth">--%</span>
+          </div>
+          <div class="ai-fleet-stat">
+            <span class="ai-fleet-label">ANOMALIAS TOTAIS</span>
+            <span class="ai-fleet-val" id="aiFleetAnomalyCount">0</span>
+          </div>
+          <div class="ai-fleet-stat">
+            <span class="ai-fleet-label">AMOSTRAS PROCESSADAS</span>
+            <span class="ai-fleet-val" id="aiFleetTotalSamples">0</span>
+          </div>
+        </div>
+
+        <!-- Métricas Principais da IA (dispositivo selecionado) -->
         <div class="ai-metrics-grid">
           <div class="ai-metric-box">
             <span class="ai-metric-label">ÍNDICE DE SAÚDE DA AERONAVE</span>

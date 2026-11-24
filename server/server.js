@@ -201,7 +201,11 @@ function initMQTT() {
         let aiInfo = existing.ai || null;
         if (topic === 'drone/sensor/tof90') {
           aiInfo = fleetAI.processTelemetry(data);
-          broadcastSSE({ type: 'ai_update', ai: aiInfo });
+          broadcastSSE({
+            type: 'ai_update',
+            ai: aiInfo,
+            fleetSummary: fleetAI.getFleetSummary()
+          });
         }
 
         const updatedDevice = {
@@ -287,6 +291,7 @@ app.get('/api/status', (req, res) => {
     mqttBroker: MQTT_BROKER_URL,
     devices: Array.from(devices.values()),
     aiMetrics: fleetAI.getAllMetrics(),
+    fleetSummary: fleetAI.getFleetSummary(),
     firmware: getActiveFirmwareInfo(),
     logs: systemLogs.slice(-50),
   });
@@ -296,15 +301,15 @@ app.get('/api/status', (req, res) => {
 app.get('/api/ai/metrics', (req, res) => {
   res.json({
     success: true,
-    metrics: fleetAI.getAllMetrics()
+    metrics: fleetAI.getAllMetrics(),
+    fleetSummary: fleetAI.getFleetSummary()
   });
 });
 
-// Geração de Relatório de Auditoria Preditiva por IA
+// Geração de Relatório de Auditoria Preditiva por IA (individual ou frota inteira)
 app.post('/api/ai/audit', (req, res) => {
-  const deviceId = req.body.deviceId || 'esp32s3_tof90';
-  const devAi = fleetAI.getDeviceAI(deviceId);
-  const report = devAi.generateAuditReport();
+  const deviceId = req.body.deviceId || 'fleet_all';
+  const report = fleetAI.generateAuditReport(deviceId);
   res.json({
     success: true,
     report
@@ -428,6 +433,7 @@ app.get('/api/events', (req, res) => {
     mqttBroker: MQTT_BROKER_URL,
     devices: Array.from(devices.values()),
     aiMetrics: fleetAI.getAllMetrics(),
+    fleetSummary: fleetAI.getFleetSummary(),
     firmware: getActiveFirmwareInfo(),
     logs: systemLogs.slice(-30),
   };

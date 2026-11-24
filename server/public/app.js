@@ -2,6 +2,9 @@
 let serverIp = window.location.hostname;
 let serverPort = window.location.port || 5000;
 let devicesMap = new Map();
+let aiMetricsMap = new Map();
+let latestFleetSummary = null;
+let selectedAiDevice = 'fleet_all';
 let currentFirmware = null;
 let isUpdating = false;
 
@@ -272,14 +275,26 @@ function setupSSE() {
 
           devicesMap.clear();
           if (data.devices) {
-            for (const d of data.devices) devicesMap.set(d.id, d);
+            for (const d of data.devices) {
+              devicesMap.set(d.id, d);
+              if (d.ai) aiMetricsMap.set(d.id, d.ai);
+            }
           }
           renderDevices();
 
-          if (data.aiMetrics && data.aiMetrics.length > 0) {
-            updateAiUI(data.aiMetrics[0]);
-            renderAnomaliesList(data.aiMetrics[0].recentAnomalies);
+          if (data.aiMetrics && Array.isArray(data.aiMetrics)) {
+            for (const m of data.aiMetrics) {
+              if (m.deviceId) aiMetricsMap.set(m.deviceId, m);
+            }
           }
+
+          if (data.fleetSummary) {
+            latestFleetSummary = data.fleetSummary;
+            updateAiFleetBanner(latestFleetSummary);
+          }
+
+          updateAiDeviceDropdown();
+          refreshAiUI();
 
           if (data.logs) {
             logsConsole.innerHTML = '';
@@ -290,7 +305,15 @@ function setupSSE() {
           break;
 
         case 'ai_update':
-          updateAiUI(data.ai);
+          if (data.ai && data.ai.deviceId) {
+            aiMetricsMap.set(data.ai.deviceId, data.ai);
+          }
+          if (data.fleetSummary) {
+            latestFleetSummary = data.fleetSummary;
+            updateAiFleetBanner(latestFleetSummary);
+          }
+          updateAiDeviceDropdown();
+          refreshAiUI();
           break;
 
         case 'mqtt_status':
@@ -303,7 +326,12 @@ function setupSSE() {
 
         case 'device_update':
           devicesMap.set(data.device.id, data.device);
+          if (data.device.ai) {
+            aiMetricsMap.set(data.device.id, data.device.ai);
+          }
           renderDevices();
+          updateAiDeviceDropdown();
+          refreshAiUI();
           break;
 
         case 'ota_progress':
@@ -347,6 +375,12 @@ function updateMqttStatus(connected) {
 // ==========================================================
 // INTELIGÊNCIA ARTIFICIAL REAL (ISOLATION FOREST & ML UI)
 // ==========================================================
+const aiDeviceSelector = document.getElementById('aiDeviceSelector');
+const aiFleetDeviceCount = document.getElementById('aiFleetDeviceCount');
+const aiFleetAvgHealth = document.getElementById('aiFleetAvgHealth');
+const aiFleetAnomalyCount = document.getElementById('aiFleetAnomalyCount');
+const aiFleetTotalSamples = document.getElementById('aiFleetTotalSamples');
+
 const aiHealthScore = document.getElementById('aiHealthScore');
 const aiHealthFill = document.getElementById('aiHealthFill');
 const aiAnomalyScore = document.getElementById('aiAnomalyScore');
@@ -361,7 +395,94 @@ const aiAuditModal = document.getElementById('aiAuditModal');
 const btnCloseAiModal = document.getElementById('btnCloseAiModal');
 const aiAuditContent = document.getElementById('aiAuditContent');
 
-function updateAiUI(ai) {
+function updateAiDeviceDropdown() {
+  if (!aiDeviceSelector) return;
+  const currentVal = aiDeviceSelector.value || selectedAiDevice;
+
+  const knownIds = new Set();
+  for (const id of devicesMap.keys()) knownIds.add(id);
+  for (const id of aiMetricsMap.keys()) knownIds.add(id);
+
+  aiDeviceSelector.innerHTML = '<option value="fleet_all">🌐 Visão da Frota Inteira</option>';
+  for (const id of knownIds) {
+    const opt = document.createElement('option');
+    opt.value = id;
+    const dev = devicesMap.get(id);
+    const statusText = dev && dev.status === 'online' ? 'Online' : 'Registrado';
+    opt.textContent = `🚁 ${id} (${statusText})`;
+    aiDeviceSelector.appendChild(opt);
+  }
+
+  if (currentVal && (currentVal === 'fleet_all' || knownIds.has(currentVal))) {
+    aiDeviceSelector.value = currentVal;
+    selectedAiDevice = currentVal;
+  } else {
+    aiDeviceSelector.value = 'fleet_all';
+    selectedAiDevice = 'fleet_all';
+  }
+}
+
+function updateAiFleetBanner(summary) {
+  if (!aiFleetDeviceCount) return;
+  if (!summary || summary.totalDevices === 0) {
+    aiFleetDeviceCount.textContent = devicesMap.size || '0';
+    aiFleetAvgHealth.textContent = '--%';
+    aiFleetAnomalyCount.textContent = '0';
+    aiFleetTotalSamples.textContent = '0';
+    return;
+  }
+  aiFleetDeviceCount.textContent = summary.totalDevices;
+  aiFleetAvgHealth.textContent = `${summary.healthScore}%`;
+  aiFleetAnomalyCount.textContent = summary.anomalyCount;
+  aiFleetTotalSamples.textContent = summary.totalSamples;
+}
+
+function refreshAiUI() {
+  if (selectedAiDevice === 'fleet_all') {
+    if (latestFleetSummary) {
+      displayAiMetrics({
+        healthScore: latestFleetSummary.healthScore,
+        anomalyScore: latestFleetSummary.anomalyScore,
+        isAnomaly: latestFleetSummary.anomalyScore > 0.45,
+        anomalyRate: latestFleetSummary.anomalyRate,
+        regime: latestFleetSummary.regime,
+        regimeColor: latestFleetSummary.regimeColor || '#00E5FF',
+        totalSamples: latestFleetSummary.totalSamples,
+        velocityMmS: '--',
+        jitterMs: '--',
+        isFleet: true
+      });
+      renderAnomaliesList(latestFleetSummary.recentAnomalies, true);
+    }
+  } else {
+    const devAi = aiMetricsMap.get(selectedAiDevice);
+    if (devAi) {
+      displayAiMetrics({
+        ...devAi,
+        isFleet: false
+      });
+      renderAnomaliesList(devAi.recentAnomalies, false);
+    } else {
+      if (aiHealthScore) aiHealthScore.textContent = '--%';
+      if (aiHealthFill) aiHealthFill.style.width = '0%';
+      if (aiAnomalyScore) aiAnomalyScore.textContent = '0.000';
+      if (aiAnomalyStatus) {
+        aiAnomalyStatus.textContent = 'Aguardando telemetria...';
+        aiAnomalyStatus.style.color = '#94A3B8';
+      }
+      if (aiRegimeName) {
+        aiRegimeName.textContent = 'Aguardando dados...';
+        aiRegimeName.style.color = '#94A3B8';
+      }
+      if (aiModelDetails) aiModelDetails.textContent = 'Isolation Forest (25 iTrees)';
+      if (aiDynamicVelocity) aiDynamicVelocity.textContent = '0 mm/s';
+      if (aiDynamicJitter) aiDynamicJitter.textContent = 'Jitter: -- ms';
+      renderAnomaliesList([], false);
+    }
+  }
+}
+
+function displayAiMetrics(ai) {
   if (!ai) return;
 
   if (aiHealthScore && aiHealthFill) {
@@ -377,12 +498,12 @@ function updateAiUI(ai) {
   }
 
   if (aiAnomalyScore && aiAnomalyStatus) {
-    aiAnomalyScore.textContent = (ai.anomalyScore !== undefined) ? ai.anomalyScore.toFixed(3) : '0.000';
+    aiAnomalyScore.textContent = (ai.anomalyScore !== undefined) ? Number(ai.anomalyScore).toFixed(3) : '0.000';
     if (ai.isAnomaly) {
       aiAnomalyStatus.textContent = '⚠️ Anomalia Isolada pelo Modelo!';
       aiAnomalyStatus.style.color = '#F87171';
     } else {
-      aiAnomalyStatus.textContent = 'Nominal (Sem anomalias)';
+      aiAnomalyStatus.textContent = ai.isFleet ? 'Operação Geral Nominal' : 'Nominal (Sem anomalias)';
       aiAnomalyStatus.style.color = '#94A3B8';
     }
   }
@@ -393,18 +514,22 @@ function updateAiUI(ai) {
   }
 
   if (aiModelDetails) {
-    aiModelDetails.textContent = `Amostras: ${ai.totalSamples || 0} | Anomalias: ${ai.anomalyRate || '0%'}`;
+    if (ai.isFleet) {
+      aiModelDetails.textContent = `Frota: ${latestFleetSummary ? latestFleetSummary.totalDevices : 0} drones | ${ai.totalSamples || 0} amostras`;
+    } else {
+      aiModelDetails.textContent = `Amostras: ${ai.totalSamples || 0} | Anomalias: ${ai.anomalyRate || '0%'}`;
+    }
   }
 
   if (aiDynamicVelocity) {
-    aiDynamicVelocity.textContent = `${ai.velocityMmS || 0} mm/s`;
+    aiDynamicVelocity.textContent = ai.isFleet ? 'Média Frota' : `${ai.velocityMmS || 0} mm/s`;
   }
   if (aiDynamicJitter) {
-    aiDynamicJitter.textContent = `Jitter: ~${ai.jitterMs || 200} ms`;
+    aiDynamicJitter.textContent = ai.isFleet ? 'Visão Consolidada' : `Jitter: ~${ai.jitterMs || 200} ms`;
   }
 }
 
-function renderAnomaliesList(anomalies) {
+function renderAnomaliesList(anomalies, isFleet = false) {
   if (!aiAnomaliesList) return;
   if (!anomalies || anomalies.length === 0) {
     aiAnomaliesList.innerHTML = '<div class="ai-empty-notice">Nenhuma anomalia crítica isolada no buffer de telemetria atual.</div>';
@@ -415,9 +540,11 @@ function renderAnomaliesList(anomalies) {
   for (const item of anomalies) {
     const el = document.createElement('div');
     el.className = 'ai-anomaly-item';
+    const devTag = (isFleet && item.deviceId) ? `<span style="color: var(--accent-cyan); font-weight: 700; margin-right: 6px;">[${item.deviceId}]</span>` : '';
     el.innerHTML = `
       <div>
         <span class="ai-anomaly-time">[${item.timestamp}]</span>
+        ${devTag}
         <span class="ai-anomaly-reason">${item.reason}</span>
       </div>
       <span class="ai-anomaly-score">Score: ${item.score}</span>
@@ -426,17 +553,27 @@ function renderAnomaliesList(anomalies) {
   }
 }
 
+// Listener para troca de dispositivo no seletor da IA
+if (aiDeviceSelector) {
+  aiDeviceSelector.addEventListener('change', (e) => {
+    selectedAiDevice = e.target.value;
+    refreshAiUI();
+  });
+}
+
 // Listener para Auditoria de IA
 if (btnRunAiAudit) {
   btnRunAiAudit.addEventListener('click', async () => {
     aiAuditModal.style.display = 'flex';
-    aiAuditContent.innerHTML = '<p>Calculando inferência nos modelos Isolation Forest e K-Means...</p>';
+    const targetId = aiDeviceSelector ? aiDeviceSelector.value : 'fleet_all';
+    const targetLabel = targetId === 'fleet_all' ? 'Toda a Frota' : `Drone ${targetId}`;
+    aiAuditContent.innerHTML = `<p>Calculando inferência nos modelos Isolation Forest e K-Means para <strong>${targetLabel}</strong>...</p>`;
 
     try {
       const res = await fetch('/api/ai/audit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ deviceId: 'esp32s3_tof90' })
+        body: JSON.stringify({ deviceId: targetId })
       });
       const data = await res.json();
       if (!data.success || !data.report) {
@@ -453,7 +590,7 @@ if (btnRunAiAudit) {
           <span>${verdictIcon}</span>
           <div>
             <div>${r.verdict}</div>
-            <div style="font-size: 12px; font-weight: normal; opacity: 0.9;">Score de Saúde Geral: ${r.healthScore}% | Taxa de Anomalias: ${r.anomalyRate}</div>
+            <div style="font-size: 12px; font-weight: normal; opacity: 0.9;">Alvo: <strong>${r.deviceId}</strong> | Saúde Geral: ${r.healthScore}% | Taxa de Anomalias: ${r.anomalyRate}</div>
           </div>
         </div>
 

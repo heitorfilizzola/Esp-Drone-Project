@@ -440,6 +440,113 @@ class FleetAIMaster {
     }
     return res;
   }
+
+  getFleetSummary() {
+    const all = this.getAllMetrics();
+    if (all.length === 0) {
+      return {
+        deviceId: 'fleet_all',
+        healthScore: 100,
+        anomalyScore: 0.0,
+        regime: 'Nenhum drone ativo',
+        regimeColor: '#94A3B8',
+        regimeBadge: 'slate',
+        totalSamples: 0,
+        anomalyCount: 0,
+        anomalyRate: '0.0%',
+        totalDevices: 0,
+        recentAnomalies: [],
+        isFleetSummary: true
+      };
+    }
+
+    let sumHealth = 0;
+    let sumAnomalyScore = 0;
+    let sumSamples = 0;
+    let sumAnomalies = 0;
+    const allRecentAnomalies = [];
+
+    for (const m of all) {
+      sumHealth += m.healthScore;
+      sumAnomalyScore += m.anomalyScore;
+      sumSamples += m.totalSamples;
+      sumAnomalies += m.anomalyCount;
+      if (m.recentAnomalies) {
+        for (const a of m.recentAnomalies) {
+          allRecentAnomalies.push({ ...a, deviceId: m.deviceId });
+        }
+      }
+    }
+
+    const avgHealth = Math.round(sumHealth / all.length);
+    const avgAnomalyScore = parseFloat((sumAnomalyScore / all.length).toFixed(3));
+    const totalRate = sumSamples > 0 ? ((sumAnomalies / sumSamples) * 100).toFixed(1) + '%' : '0.0%';
+
+    return {
+      deviceId: 'fleet_all',
+      healthScore: avgHealth,
+      anomalyScore: avgAnomalyScore,
+      regime: `Frota Operacional (${all.length} drone${all.length > 1 ? 's' : ''})`,
+      regimeColor: avgHealth >= 80 ? '#10B981' : avgHealth >= 60 ? '#F59E0B' : '#EF4444',
+      regimeBadge: avgHealth >= 80 ? 'green' : avgHealth >= 60 ? 'amber' : 'red',
+      totalSamples: sumSamples,
+      anomalyCount: sumAnomalies,
+      anomalyRate: totalRate,
+      totalDevices: all.length,
+      recentAnomalies: allRecentAnomalies.slice(0, 10),
+      isFleetSummary: true
+    };
+  }
+
+  generateAuditReport(targetId = 'fleet_all') {
+    if (targetId !== 'fleet_all' && this.devices.has(targetId)) {
+      return this.getDeviceAI(targetId).generateAuditReport();
+    }
+
+    const summary = this.getFleetSummary();
+    const all = this.getAllMetrics();
+
+    let verdict = 'FROTA TOTALMENTE ESTÁVEL';
+    const recommendations = [];
+
+    if (summary.healthScore >= 80) {
+      verdict = 'OPERAÇÃO DA FROTA EXCELENTE';
+      recommendations.push(`Todos os ${summary.totalDevices} drones conectados apresentam alta estabilidade.`);
+      recommendations.push('Assinaturas ópticas dos sensores ToF-90 estão dentro do padrão nominal.');
+    } else if (summary.healthScore >= 60) {
+      verdict = 'ATENÇÃO OPERACIONAL NA FROTA';
+      recommendations.push('Um ou mais drones apresentaram oscilação atípica ou picos de ruído óptico.');
+      recommendations.push('Inspecione individualmente o drone com menor pontuação de saúde.');
+    } else {
+      verdict = 'ALERTA CRÍTICO DE FROTA';
+      recommendations.push('Alta dispersão de telemetria ou taxa elevada de anomalias isoladas.');
+      recommendations.push('Recomenda-se suspender decolagens e atualizar o firmware da frota via OTA.');
+    }
+
+    return {
+      timestamp: new Date().toLocaleString(),
+      deviceId: 'Toda a Frota (Visão Geral)',
+      verdict,
+      healthScore: summary.healthScore,
+      anomalyScore: summary.anomalyScore,
+      anomalyRate: summary.anomalyRate,
+      currentRegime: summary.regime,
+      windowSamples: summary.totalSamples,
+      telemetryStats: {
+        avgAltitudeMm: '--',
+        minAltitudeMm: '--',
+        maxAltitudeMm: '--',
+        avgVerticalVelocityMmS: '--',
+      },
+      modelDiagnostics: {
+        algorithm: 'Isolation Forest Ensemble Multi-Drone + K-Means',
+        trees: summary.totalDevices * 25,
+        anomaliesLogged: summary.anomalyCount,
+      },
+      recommendations,
+      recentAnomalies: summary.recentAnomalies
+    };
+  }
 }
 
 module.exports = {
