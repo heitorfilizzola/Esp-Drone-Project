@@ -1,6 +1,6 @@
 import mqtt, { MqttClient } from 'mqtt';
 
-export const DEFAULT_BROKER_URL = process.env.EXPO_PUBLIC_MQTT_BROKER_URL || 'ws://192.168.1.6:8083/mqtt';
+export const DEFAULT_BROKER_URL = process.env.EXPO_PUBLIC_MQTT_BROKER_URL || 'ws://18.222.81.88:8083/mqtt';
 const rawTopic = process.env.EXPO_PUBLIC_MQTT_TOPIC;
 export const DEFAULT_TOPIC = (!rawTopic || rawTopic === 'drone/' || rawTopic === 'drone')
   ? 'drone/#'

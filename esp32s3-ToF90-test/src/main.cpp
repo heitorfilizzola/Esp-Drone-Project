@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <Wire.h>
 #include <WiFi.h>
+#include <WiFiMulti.h>
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
 #include <WebServer.h>
@@ -80,6 +81,7 @@ constexpr uint8_t PIN_SDA = 4;
 constexpr uint8_t PIN_SCL = 5;
 
 // Instâncias
+WiFiMulti wifiMulti;
 WiFiClient espClient;
 PubSubClient mqttClient(espClient);
 WebServer server(80);
@@ -341,21 +343,25 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
 }
 
 void connectWiFi() {
-    Serial.printf("\n[WiFi] Conectando a %s", WIFI_SSID);
+    Serial.println("\n[WiFi] Iniciando busca e conexao Wi-Fi...");
     setRgbColor(COLOR_BLUE);
     WiFi.mode(WIFI_STA);
     WiFi.setTxPower(WIFI_POWER_17dBm);
-    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+
+    wifiMulti.addAP(WIFI_SSID, WIFI_PASSWORD);
+#ifdef SECRET_WIFI_BACKUP_SSID
+    wifiMulti.addAP(SECRET_WIFI_BACKUP_SSID, SECRET_WIFI_BACKUP_PASSWORD);
+#endif
 
     int attempts = 0;
-    while (WiFi.status() != WL_CONNECTED && attempts < 30) {
+    while (wifiMulti.run() != WL_CONNECTED && attempts < 25) {
         delay(500);
         Serial.print(".");
         attempts++;
     }
 
     if (WiFi.status() == WL_CONNECTED) {
-        Serial.printf("\n[WiFi] Conectado! IP do ESP32: %s\n", WiFi.localIP().toString().c_str());
+        Serial.printf("\n[WiFi] Conectado a '%s'! IP do ESP32: %s\n", WiFi.SSID().c_str(), WiFi.localIP().toString().c_str());
     } else {
         Serial.println("\n[WiFi][ERRO] Falha ao conectar no Wi-Fi.");
         setRgbColor(COLOR_RED);
@@ -500,8 +506,8 @@ void loop() {
         static uint32_t lastWifiRetry = 0;
         if (millis() - lastWifiRetry > 3000) {
             lastWifiRetry = millis();
-            Serial.printf("[DIAGNOSTICO] Wi-Fi desconectado! Tentando reconectar a '%s'...\n", WIFI_SSID);
-            WiFi.reconnect();
+            Serial.println("[DIAGNOSTICO] Wi-Fi desconectado! Reconectando...");
+            wifiMulti.run();
         }
     }
 
