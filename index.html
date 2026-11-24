@@ -499,6 +499,7 @@
         <ul class="nav-list">
           <li><a href="#visao-geral" class="nav-link">Visão Geral</a></li>
           <li><a href="#arquitetura" class="nav-link">Arquitetura Geral</a></li>
+          <li><a href="#motor-ia" class="nav-link">Motor de IA Real</a></li>
           <li><a href="#servidor-ota" class="nav-link">Servidor OTA</a></li>
           <li><a href="#app-mobile" class="nav-link">App & IA Copilot</a></li>
           <li><a href="#esquemas-eletricos" class="nav-link">Hardware & Elétrica</a></li>
@@ -529,13 +530,13 @@
       </div>
       <div class="spec-card">
         <span class="spec-icon">🚀</span>
-        <div class="spec-title">Servidor Central OTA</div>
-        <div class="spec-desc">Painel Web Node.js/Express para disparo massivo de atualizações de firmware via MQTT com logs via SSE.</div>
+        <div class="spec-title">Servidor Central & OTA</div>
+        <div class="spec-desc">Painel Web Node.js/Express para orquestração OTA em lote via MQTT com logs via SSE.</div>
       </div>
       <div class="spec-card">
         <span class="spec-icon">🧠</span>
-        <div class="spec-title">App Mobile & Edge AI</div>
-        <div class="spec-desc">React Native Expo (SDK 58) com gráficos vetoriais SVG e IA embarcada de diagnóstico e estabilidade de voo.</div>
+        <div class="spec-title">Motor de IA de Frota</div>
+        <div class="spec-desc">Isolation Forest & K-Means no servidor para detecção de anomalias multi-drone e auditoria preditiva.</div>
       </div>
     </div>
 
@@ -580,7 +581,8 @@
 |  +--------------------+        I2C        +----------------------------------------------------+  |
 |  |   Mini ToF 90°     | ----------------> |                ESP32-S3 / ESP32-S2                 |  |
 |  |  (M5Stack U196)    |  SDA:04 / SCL:05  | - Aquisição de Altitude em Tempo Real (I2C)        |  |
-|  +--------------------+                   | - Feedback Visual via LED WS2812B (GPIO 48)        |  |
+|  +--------------------+                   | - WiFiMulti (Failover de Redes Wi-Fi)              |  |
+|                                           | - Feedback Visual via LED WS2812B (GPIO 48)        |  |
 |                                           | - Cliente MQTT PubSubClient & HTTPUpdate OTA       |  |
 |                                           +----------------------------------------------------+  |
 +-------------------------------------------/--------------------|--------------------\-------------+
@@ -591,14 +593,15 @@
                                         v         Pub: drone/ota/status                    v
 +------------------------------------+ |                         |        +---------------------------------+
 |          ESTAÇÃO PC DE SOLO        | |                         v        |          BROKER EMQX            |
-|                                    | |     +-----------------------+    |  - Listener TCP: 1883           |
-| - Software de Pilotagem            | |     |   SERVIDOR CENTRAL    |    |  - Listener WebSocket: 8083     |
-|   (Crazyflie Client / QGC)         | |     |   (Painel Web / OTA)  |    |  - Autenticação e ACL via MySQL |
-| - Calibração de PID e Atitude      | |     |                       |    +----------------|----------------+
-+------------------------------------+ |     | - Node.js + Express   |                     |
-                                       |     | - Dashboard Web :5000 |                     | Rule Engine (INSERT)
-                                       |     | - Disparo OTA em Lote |                     v
-                                       |     | - Streaming /firmware |    +---------------------------------+
+|                                    | |     +-----------------------+    |        (Nuvem AWS EC2)          |
+| - Software de Pilotagem            | |     |   SERVIDOR CENTRAL    |    |  - Listener TCP: 1883           |
+|   (Crazyflie Client / QGC)         | |     |   (Painel Web / IA)   |    |  - Listener WebSocket: 8083     |
+| - Calibração de PID e Atitude      | |     |                       |    |  - Autenticação e ACL via MySQL |
++------------------------------------+ |     | - Node.js + Express   |    +----------------|----------------+
+                                       |     | - Isolation Forest ML |                     |
+                                       |     | - K-Means Clustering  |                     | Rule Engine (INSERT)
+                                       |     | - Dashboard Multi-Dev |                     v
+                                       |     | - Disparo OTA em Lote |    +---------------------------------+
                                        |     +-----------------------+    |        BANCO MARIADB            |
                                        |                                  |  - iot_db.sensor_tof            |
                                        |                                  +---------------------------------+
@@ -671,6 +674,37 @@
               v
 [ ESP32 Reinicia Automaticamente no Novo Firmware ]
       </pre>
+    </section>
+
+    <!-- Motor de IA Real no Servidor -->
+    <section id="motor-ia">
+      <h2>🧠 Motor de Machine Learning Real no Servidor Central</h2>
+      <p>
+        O Servidor Central implementa um motor de Inteligência Artificial estatístico e não-supervisionado em tempo real (<code>aiEngine.js</code>) baseado em algoritmos consagrados de aprendizado de máquina para frotas de drones:
+      </p>
+
+      <div class="feature-grid">
+        <div class="feature-card">
+          <h4>🌲 Isolation Forest (Liu, Ting, Zhou - IEEE ICDM)</h4>
+          <p>Ensemble de <strong>25 árvores de isolamento (iTrees)</strong> recalculadas dinamicamente com subsample a cada 15 segundos sobre um espaço vetorial 5D (altitude, velocidade vertical, aceleração, dispersão de fótons e jitter de rede). Avalia a profundidade média do caminho para detecção imediata de anomalias aerodinâmicas ou interferência óptica.</p>
+        </div>
+        <div class="feature-card">
+          <h4>🎯 K-Means Clustering em Tempo Real</h4>
+          <p>Classificador dinâmico de regime de voo que agrupa as amostras em 4 centroides operacionais: <em>Hovering Estável</em>, <em>Subida / Descida Nominal</em>, <em>Turbulência / Vórtice de Solo</em> e <em>Dispersão Óptica / Ruído Extremo</em>.</p>
+        </div>
+        <div class="feature-card">
+          <h4>🌐 Gestão de Frota Multi-Dispositivo (FleetAIMaster)</h4>
+          <p>Arquitetura que mantém instâncias dedicadas (<code>FleetDeviceAI</code>) para cada drone conectado e calcula resumos agregados de toda a frota (<code>getFleetSummary()</code>) transmitidos instantaneamente via Server-Sent Events (SSE).</p>
+        </div>
+        <div class="feature-card">
+          <h4>⚡ Relatório de Auditoria Preditiva Contextual</h4>
+          <p>Endpoint REST (<code>POST /api/ai/audit</code>) que gera parecer técnico automático, índice de saúde geral e recomendações operacionais (como inspeção de solo ou ajuste de PID via OTA) tanto para um drone específico quanto para a frota completa.</p>
+        </div>
+      </div>
+
+      <div class="callout green">
+        <strong>Visão de Frota e Drone Individual:</strong> O Dashboard Web disponibiliza um dropdown seletor que permite alternar instantaneamente entre a <em>"🌐 Visão da Frota Inteira"</em> (com métricas consolidadas e banner de frota) e o diagnóstico individualizado de cada aeronave registrada.
+      </div>
     </section>
 
     <!-- Aplicativo Mobile e IA Copilot -->
@@ -868,9 +902,12 @@
       <h2>🚀 Status do Projeto</h2>
       <ul class="badge-checklist">
         <li>Validação de bancada do sensor ToF 90° via I2C com publicação MQTT.</li>
+        <li>Suporte a múltiplas redes Wi-Fi com failover automático (WiFiMulti).</li>
+        <li>Infraestrutura em nuvem na AWS EC2 (Broker EMQX Enterprise e MariaDB com Rule Engine).</li>
         <li>Desenvolvimento do Aplicativo Mobile para consumo dos tópicos do EMQX e diagnóstico com IA.</li>
         <li>Arquitetura de Atualização de Firmware Over-The-Air (OTA) centralizada no Servidor com Painel Web.</li>
-        <li>Disparo de OTA para múltiplos dispositivos em simultâneo via MQTT e HTTPUpdate.</li>
+        <li>Motor de Machine Learning Real no Servidor (Isolation Forest & K-Means) com suporte multi-dispositivo e frota inteira.</li>
+        <li>Pipeline CI/CD com GitHub Actions para deploy contínuo no GitHub Pages.</li>
         <li class="pending">Integração do driver do ToF 90° no firmware oficial do ESP-Drone (ESP32-S2).</li>
         <li class="pending">Ajuste da malha de controle de altitude (PID/fusão com barômetro/IMU se aplicável).</li>
       </ul>
