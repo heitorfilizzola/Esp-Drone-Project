@@ -6,6 +6,14 @@ Sistema integrado de controle, sensoriamento e telemetria IoT para veículos aé
 
 ---
 
+## 👥 Equipe do Projeto
+
+* **Heitor Filizzola**
+* **Pedro Maia**
+* **Pedro Lima**
+
+---
+
 ## 📌 Visão Geral do Projeto
 
 O objetivo principal deste projeto é integrar sensoriamento de altitude em tempo real a uma plataforma de drone com ESP32, permitindo estabilização de voo mais precisa e disponibilizando dados de telemetria tanto para ferramentas avançadas de pilotagem em PC quanto para um dashboard web administrativo e um aplicativo móvel voltado ao acompanhamento visual e conciso da operação.
@@ -15,6 +23,46 @@ A arquitetura do sistema divide-se em quatro pilares fundamentais:
 2. **Infraestrutura em Nuvem (AWS EC2):** Broker MQTT **EMQX Enterprise** com listeners TCP (1883) e WebSocket (8083), controle de acesso (ACL/Auth) em MariaDB e motor de regras (*Rule Engine*) para persistência contínua de telemetria.
 3. **Servidor Central com Motor de IA de Frota & OTA (`server/`):** Painel Web administrativo com monitoramento de frota multi-dispositivo, detecção de anomalias por **Isolation Forest**, agrupamento de regimes de voo por **K-Means**, auditoria preditiva e disparo massivo de atualizações OTA.
 4. **Apresentação e Telemetria Móvel (`DroneTelemetryApp/`):** Aplicativo mobile em React Native (Expo SDK 58) conectado ao broker EMQX que assina os tópicos de telemetria e exibe painéis intuitivos de altitude, histórico em gráficos SVG e IA embarcada de diagnóstico.
+
+---
+
+## 🛠️ Tecnologias Utilizadas
+
+### 1. Aplicativo Mobile
+| Característica | Detalhamento no Projeto |
+| :--- | :--- |
+| **Linguagem de programação** | TypeScript / JavaScript |
+| **Framework / SDK** | React Native, Expo (SDK 58) |
+| **IDE / ambiente de desenvolvimento** | Visual Studio Code (VS Code), Android Studio |
+| **Bibliotecas / plugins principais** | `mqtt` (v5.16.1 sobre WebSocket), `react-native-chart-kit` (gráficos), `react-native-svg` (renderização vetorial), `expo-file-system`, `expo-document-picker`, `expo-status-bar` |
+| **Integração com o projeto** | Conexão direta ao broker MQTT (EMQX Enterprise) via WebSocket na porta 8083 (`ws://3.134.108.165:8083/mqtt`), assinando os tópicos de telemetria em tempo real (`drone/#`, `drone/sensor/tof90`) e Edge AI Copilot integrado para diagnóstico de voo |
+
+### 2. Sistema Embarcado / Firmware
+| Característica | Detalhamento no Projeto |
+| :--- | :--- |
+| **Placa e microcontrolador** | ESP32-S3 DevKitC-1 (com previsão de integração na plataforma ESP-Drone com ESP32-S2 / STM32) |
+| **Linguagem de programação** | C / C++ |
+| **IDE e framework / SDK** | VS Code + PlatformIO (Framework Arduino / plataforma `espressif32`) |
+| **Sistema operacional / RTOS** | FreeRTOS (Sim, integrado nativamente ao ESP-IDF / Arduino Core do ESP32) |
+| **Bibliotecas e recursos principais** | `WiFiMulti` (redundância e failover de Wi-Fi), `HTTPUpdate` & `Update` (atualização OTA via HTTP/MQTT), `knolleary/PubSubClient` (cliente MQTT), `bblanchon/ArduinoJson` (v7.3.0), `m5stack/M5Unit-TOF` & `M5UnitUnified` (driver I2C do sensor VL53L0X ToF 90°), `Adafruit NeoPixel` (sinalização diagnóstica no LED RGB WS2812B GPIO 48) |
+
+### 3. Plataforma IoT / Backend / Nuvem
+| Característica | Detalhamento no Projeto |
+| :--- | :--- |
+| **Local de hospedagem** | Nuvem AWS (instância EC2) e execução em ambiente local para testes/desenvolvimento |
+| **Linguagem e framework do backend** | JavaScript (Node.js) com Express.js |
+| **Serviços e produtos utilizados** | AWS EC2 (hospedagem de broker EMQX Enterprise e MariaDB), GitHub Pages (documentação estática), GitHub Actions (esteira de CI/CD contínua) |
+| **Implantação e orquestração** | Instalação direta com Node.js (executado via `npm start` / daemon de sistema via systemd/PM2 no Linux EC2); execução via npm localmente |
+| **Persistência e administração** | Banco de dados MariaDB / MySQL (`iot_db`), tabela de telemetria (`sensor_tof`), tabelas de controle de acesso (`mqtt_user`, `mqtt_acl`), Painel Web Administrativo em tempo real (porta 5000), APIs REST, Server-Sent Events (SSE) e motor de Inteligência Artificial não-supervisionado (Isolation Forest & K-Means) |
+
+### 4. Comunicação e Integração
+| Característica | Detalhamento no Projeto |
+| :--- | :--- |
+| **Protocolos utilizados** | MQTT (TCP porta 1883 e WebSocket porta 8083), HTTP/REST (APIs e download do binário `firmware.bin`), Server-Sent Events (SSE), I2C (comunicação física sensor ToF ↔ microcontrolador) |
+| **Broker / gateway / servidor** | EMQX Enterprise (AWS EC2 / local) com Rule Engine integrado para persistência no MariaDB; Servidor Central Node.js (porta 5000) |
+| **Formato dos dados** | JSON (cargas úteis estruturadas com `device_id`, leituras mm/cm, validação, timestamps e status de OTA) e binário `.bin` (firmware OTA) |
+| **Segurança de comunicação** | Autenticação MQTT com usuário e senha validados no MariaDB (`mqtt_user`), listas de controle de acesso (ACL via `mqtt_acl`), isolamento de portas e proteção de credenciais por variáveis de ambiente (`.env`) |
+| **Fluxo entre camadas** | Dispositivo (ESP32-S3 + ToF 90°) ➔ Wi-Fi / MQTT (TCP 1883) ➔ Broker EMQX Enterprise ➔ Rule Engine (MariaDB) & Servidor Central Node.js (IA/OTA) / MQTT sobre WebSocket (8083) ➔ Aplicativo Mobile (DroneTelemetryApp) |
 
 ---
 
@@ -147,7 +195,7 @@ Toda a gestão de firmware é realizada diretamente pelo **Servidor Central (`se
   "distance_cm": 27.5,
   "valid": true,
   "timestamp": 458920,
-  "ip": "18.222.81.88",
+  "ip": "3.134.108.165",
   "version": "1.2.0"
 }
 ```

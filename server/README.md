@@ -21,10 +21,10 @@ cp .env.example .env
 Exemplo de configuração (Nuvem / EC2 ou Local):
 ```env
 PORT=5000
-MQTT_BROKER_URL=mqtt://18.222.81.88:1883
+MQTT_BROKER_URL=mqtt://3.134.108.165:1883
 MQTT_USERNAME=esp32s3_tof90
 MQTT_PASSWORD=SuaSenhaSegura#
-SERVER_IP=18.222.81.88
+SERVER_IP=3.134.108.165
 ```
 
 ### 3. Iniciar o Servidor

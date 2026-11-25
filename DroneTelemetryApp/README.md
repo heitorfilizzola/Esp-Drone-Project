@@ -39,7 +39,7 @@ O aplicativo conta com navegação dividida em três módulos principais:
                                                           v
                                               +-----------------------+
                                               |      Broker EMQX      |
-                                              | (AWS EC2: 18.222.81.88|
+                                              | (AWS EC2: 3.134.108.165|
                                               |  Porta TCP: 1883)     |
                                               | (Porta WS: 8083)      |
                                               +-----------+-----------+
@@ -93,11 +93,11 @@ As configurações de conexão e credenciais utilizam variáveis de ambiente ger
 2. Configure suas credenciais reais no arquivo `.env`:
    ```bash
    # Exemplo conectando ao Broker na Nuvem AWS EC2:
-   EXPO_PUBLIC_MQTT_BROKER_URL=ws://18.222.81.88:8083/mqtt
+   EXPO_PUBLIC_MQTT_BROKER_URL=ws://3.134.108.165:8083/mqtt
    EXPO_PUBLIC_MQTT_TOPIC="drone/#"
    EXPO_PUBLIC_MQTT_USERNAME=esp32s3_tof90
    EXPO_PUBLIC_MQTT_PASSWORD="SuaSenhaMQTT"
-   EXPO_PUBLIC_ESP_IP=18.222.81.88
+   EXPO_PUBLIC_ESP_IP=3.134.108.165
    ```
 
 > [!IMPORTANT]

@@ -22,7 +22,7 @@ O sistema realiza a aquisição de dados do sensor Time-of-Flight (ToF), formata
                                           v                 v
                                +-------------------------------------+
                                |           EMQX Enterprise           |
-                               |    AWS EC2 / Nuvem: 18.222.81.88    |
+                               |    AWS EC2 / Nuvem: 3.134.108.165    |
                                +------------------+------------------+
                                         |                   |
                      Auth / ACL (MySQL) |                   | Rule Engine (INSERT)
@@ -200,7 +200,7 @@ No arquivo `include/secrets.h`, configure os múltiplos SSIDs suportados e o end
 #define WIFI_PASSWORD_2   "SenhaHotspot"
 
 // Broker MQTT (AWS EC2 ou Local)
-#define MQTT_BROKER       "18.222.81.88"
+#define MQTT_BROKER       "3.134.108.165"
 #define MQTT_PORT         1883
 #define MQTT_USER         "esp32s3_tof90"
 #define MQTT_PASS         "SuaSenhaMQTT"
@@ -226,5 +226,5 @@ pio device monitor
 Para confirmar a correta gravação das medições de teste no banco MariaDB:
 
 ```bash
-mariadb -u emqx_user -pSUA_SENHA_DB -h 18.222.81.88 iot_db -e "SELECT id, device_id, distance_mm, distance_cm, is_valid, created_at FROM sensor_tof ORDER BY id DESC LIMIT 10;"
+mariadb -u emqx_user -pSUA_SENHA_DB -h 3.134.108.165 iot_db -e "SELECT id, device_id, distance_mm, distance_cm, is_valid, created_at FROM sensor_tof ORDER BY id DESC LIMIT 10;"
 ```
